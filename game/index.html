@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SUNSET HARBOR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="mission">
+      <div class="m-tag">MISSION</div>
+      <div id="m-title"></div>
+      <div id="m-obj"></div>
+      <div class="m-row"><span id="m-dist"></span><span id="m-reward"></span></div>
+    </div>
+
+    <div id="topright">
+      <div id="cash">$0</div>
+      <div id="stars" title="Wanted level"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>
+    </div>
+
+    <div id="minimap-wrap">
+      <canvas id="minimap" width="440" height="440"></canvas>
+      <div id="district"></div>
+    </div>
+
+    <div id="speedo" class="hidden">
+      <div class="speed-line"><span id="speed-val">0</span><span class="unit">km/h</span></div>
+      <div id="speed-track"><div id="speed-bar"></div></div>
+      <div id="car-name"></div>
+    </div>
+
+    <div id="prompt" class="hidden"></div>
+    <div id="toast"></div>
+    <div id="hints"></div>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="title-card">
+      <div class="kicker">COSTA SERENA &middot; OPEN-CITY CRIME ACTION</div>
+      <h1>SUNSET<br>HARBOR</h1>
+      <p class="tagline">Sun, palms and trouble. Steal a ride, run the coast road, make a name in a harbor town that never sits still.</p>
+      <button id="start-btn" type="button">PRESS ENTER TO START</button>
+      <div class="controls">
+        <div><b>W A S D</b><span>move / drive</span></div>
+        <div><b>MOUSE</b><span>look (click to capture)</span></div>
+        <div><b>SHIFT</b><span>sprint</span></div>
+        <div><b>SPACE</b><span>jump / handbrake</span></div>
+        <div><b>F</b><span>get in / out of a car</span></div>
+        <div><b>ESC</b><span>pause</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="title-card small">
+      <h2>PAUSED</h2>
+      <p>Click or press Enter to get back to Costa Serena.</p>
+      <div class="controls">
+        <div><b>W A S D</b><span>move / drive</span></div>
+        <div><b>F</b><span>get in / out of a car</span></div>
+        <div><b>SPACE</b><span>jump / handbrake</span></div>
+        <div><b>SHIFT</b><span>sprint</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

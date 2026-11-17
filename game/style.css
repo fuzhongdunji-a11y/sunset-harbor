@@ -1,0 +1,65 @@
+/* SUNSET HARBOR: page, HUD, title and pause styling. High-contrast text so the HUD stays readable at thumbnail size. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #cdeaf6; font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; color: #fff; user-select: none; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hidden { display: none !important; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.75); }
+
+/* mission panel */
+#mission { position: absolute; left: 22px; top: 22px; width: 340px; padding: 12px 16px 12px 18px; background: rgba(16, 22, 32, 0.72); border-left: 6px solid #ffd23f; border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+.m-tag { font-size: 12px; letter-spacing: 3px; color: #ffd23f; font-weight: 700; }
+#m-title { font-size: 24px; font-weight: 800; margin: 2px 0 4px; }
+#m-obj { font-size: 16px; line-height: 1.25; color: #f0f4f8; }
+.m-row { display: flex; justify-content: space-between; margin-top: 8px; font-size: 16px; font-weight: 700; }
+#m-dist { color: #ffd23f; }
+#m-reward { color: #8be28b; }
+
+/* cash and wanted level */
+#topright { position: absolute; right: 26px; top: 18px; text-align: right; }
+#cash { font-size: 44px; font-weight: 900; letter-spacing: 1px; color: #9be86b; text-shadow: 0 3px 0 rgba(10, 40, 10, 0.8), 0 0 14px rgba(0, 0, 0, 0.6); }
+#stars { font-size: 38px; letter-spacing: 4px; margin-top: 2px; }
+#stars span { color: rgba(255, 255, 255, 0.28); text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7); }
+#stars span.on { color: #ffd23f; text-shadow: 0 0 10px rgba(255, 190, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.7); }
+#stars.hot span.on { animation: pulse 0.8s infinite alternate; }
+@keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.5); } }
+
+/* minimap */
+#minimap-wrap { position: absolute; left: 26px; bottom: 56px; width: 236px; }
+#minimap { width: 236px; height: 236px; border-radius: 50%; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); background: #4faccc; display: block; }
+#district { text-align: center; margin-top: 6px; font-size: 17px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+
+/* speedometer */
+#speedo { position: absolute; right: 34px; bottom: 56px; text-align: right; width: 230px; }
+.speed-line { font-style: italic; }
+#speed-val { font-size: 78px; font-weight: 900; line-height: 1; }
+.unit { font-size: 22px; font-weight: 700; margin-left: 8px; color: #ffd23f; }
+#speed-track { height: 8px; background: rgba(0, 0, 0, 0.45); border-radius: 4px; margin: 4px 0 6px; overflow: hidden; }
+#speed-bar { height: 100%; width: 0; background: linear-gradient(90deg, #ffd23f, #ff7a3c); }
+#car-name { font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+
+#prompt { position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%); padding: 10px 22px; background: rgba(16, 22, 32, 0.8); border: 2px solid #ffd23f; border-radius: 8px; font-size: 22px; font-weight: 800; }
+#hints { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 14px; letter-spacing: 1px; background: rgba(16, 22, 32, 0.55); padding: 6px 16px; border-radius: 20px; white-space: nowrap; }
+
+#toast { position: absolute; left: 50%; top: 15%; transform: translateX(-50%); font-size: 42px; font-weight: 900; font-style: italic; letter-spacing: 3px; opacity: 0; transition: opacity 0.4s; white-space: nowrap; }
+#toast.show { opacity: 1; }
+#toast.toast-district { color: #fff; text-shadow: 0 4px 0 rgba(224, 87, 46, 0.9), 0 0 18px rgba(0, 0, 0, 0.6); }
+#toast.toast-mission { color: #ffd23f; font-size: 52px; }
+#toast.toast-warn { color: #ff8a70; font-size: 28px; }
+#toast.toast-info { font-size: 30px; }
+
+/* title + pause */
+.screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: flex-start; padding-left: 7vw; background: linear-gradient(100deg, rgba(20, 28, 48, 0.78) 0%, rgba(20, 28, 48, 0.45) 45%, rgba(20, 28, 48, 0) 80%); }
+#pause { justify-content: center; padding-left: 0; background: rgba(12, 18, 30, 0.6); }
+.title-card { max-width: 560px; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+.title-card.small { text-align: center; background: rgba(16, 22, 32, 0.8); padding: 30px 44px; border-radius: 12px; }
+.kicker { font-size: 14px; letter-spacing: 5px; color: #ffd23f; font-weight: 700; }
+h1 { margin: 6px 0 12px; font-size: 104px; line-height: 0.92; font-weight: 900; font-style: italic; letter-spacing: 2px; background: linear-gradient(180deg, #fff3b0 8%, #ff9f43 48%, #e4572e 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 5px 0 rgba(120, 30, 20, 0.55)); text-shadow: none; }
+h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; }
+.tagline { font-size: 19px; line-height: 1.4; color: #eef3f8; margin: 0 0 22px; }
+#start-btn { pointer-events: auto; cursor: pointer; font: inherit; font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #1b1f27; background: linear-gradient(180deg, #ffe27a, #ffb52e); border: none; border-radius: 6px; padding: 14px 30px; box-shadow: 0 5px 0 #b46a00, 0 8px 18px rgba(0, 0, 0, 0.45); animation: blink 1.4s infinite alternate; }
+@keyframes blink { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; margin-top: 26px; font-size: 15px; }
+.controls div { display: flex; gap: 10px; align-items: baseline; }
+.controls b { min-width: 76px; padding: 2px 8px; background: rgba(255, 255, 255, 0.92); color: #1b1f27; border-radius: 4px; text-align: center; font-size: 13px; text-shadow: none; }
+.controls span { color: #eef3f8; }
