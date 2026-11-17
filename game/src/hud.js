@@ -64,8 +64,8 @@ export class Hud {
       this.cache.inCar = inCar;
       e.speedo.classList.toggle('hidden', !inCar);
       e.hints.textContent = inCar
-        ? 'W/S gas & brake   A/D steer   Space handbrake   F get out   Mouse look   Esc pause'
-        : 'WASD move   Shift sprint   Space jump   F drive nearby car   Mouse look   Esc pause';
+        ? 'W/S gas & brake   A/D steer   Space handbrake   F get out   M sound   Esc pause'
+        : 'WASD move   Shift sprint   Space jump   F drive nearby car   M sound   Esc pause';
     }
     if (inCar) {
       const kmh = Math.round(p.vehicle.speedKmh);

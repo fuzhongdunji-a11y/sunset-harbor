@@ -39,7 +39,7 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - `src/missions.js` — ミッション連鎖（到達・配送・車窃盗・逃走の6本 + 無限の自動生成 Courier Job）とワールドマーカー
 - `src/hud.js` / `src/minimap.js` / `src/ui.js` — HUD、Canvas ミニマップ、タイトル/ポーズ
 - `src/world.js` — 上記を束ねるシミュレーション本体。`src/shots.js` — `?shot=` 撮影モード
-- Stage 2 で追加済み: `roadNet.js`（道路グラフと車線幾何）、`roadDriver.js`（車線追従AI。交通・警察共用）、`traffic.js`（民間車の循環と再配置）、`pedestrians.js`（歩道コーナーのグラフ歩行・回避・轢かれ）、`wanted.js`（heat→★、逃走タイマー）、`police.js`（パトカーの出動・追跡・逮捕）、`save.js`（localStorage、検証付き）。Stage 3: `audio.js`。
+- Stage 2 で追加済み: `roadNet.js`（道路グラフと車線幾何）、`roadDriver.js`（車線追従AI。交通・警察共用）、`traffic.js`（民間車の循環と再配置）、`pedestrians.js`（歩道コーナーのグラフ歩行・回避・轢かれ）、`wanted.js`（heat→★、逃走タイマー）、`police.js`（パトカーの出動・追跡・逮捕）、`save.js`（localStorage、検証付き）。Stage 3: `audio.js`（WebAudio 合成）、`bench.js`（`?bench=1` 自動運転ベンチ）。
 - `characters.js` に歩行者用 `buildPedestrian`（1人5メッシュ、ジオメトリ共有）。`vehicleModels.js` に `patrol`（ライトバー付き）。`vehicles.js` は `kind`（parked/traffic/police）・`health`・`contact`・休止最適化を持つ。
 
 ## ステージ計画と完了条件
@@ -59,6 +59,23 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - 注意: ページ内の自動検証スクリプトはリポジトリ外（/tmp）で使った使い捨て。Stage 3 で音（サイレン・エンジン）と性能計測が必要。
 
 **Stage 3 — 仕上げ**: WebAudio 合成サウンド（エンジン・サイレン・環境音、ミュート切替）、ライティング調整、全システムが写るスクショ3〜4枚、性能計測、README バッジ、ゲート検証、提出。
+
+**Stage 3 完了記録**:
+- サウンド `src/audio.js`（WebAudio 合成のみ、音源ファイルなし）。`Ui.start()` → `onStart` 内で `audio.start()`（クリック/Enter のジェスチャ内で AudioContext 生成）。ポーズで suspend/resume。`M` でミュート切替（`localStorage: sunsetHarbor.mute` に保存、タイトル/ポーズに状態表示）。
+  - エンジン: saw+square を LPF に通し、速度→5段のギアで回転数が上下。タイヤ/風切りはバンドパスノイズで速度連動。
+  - サイレン: 追跡中のパトカーのうち最寄り1台（220m以内）で三角波+矩形波のウェール。距離で音量、カメラ向きに対する左右でパン。
+  - 衝突: `vehicle.impact > 2.5` でノイズ+低音サイン。ミッション完了/BUSTED/WASTED/ドア/轢き/カージャックは `world.emit(type)` のイベントキューを `audio.update` が消費。
+  - 環境音: 波（ノイズ+LFO、海岸 z>120 付近ほど大きい）、街の低いざわめき、数秒おきの鳥のさえずり。
+- 性能計測: `node scripts/perf.mjs [秒] [幅] [高さ]`。`?bench=1`（`src/bench.js`）が車に乗り、市内の矩形ルートを自動運転（★3の追跡状態、体力は毎フレーム回復）して、フレーム時間・CPU内訳（sim / HUD+ミニマップ / render 呼び出し）・draw call・三角形数を `window.__bench` に集計する。
+  - **限界**: この環境は swiftshader（ソフトウェアGL）のため fps は実機を表さない（1280x720 で約1〜3 fps、ラスタライズ律速）。60fps の達成は実測できていない。指標は draw call / 三角形数 / CPU 時間で見る。
+  - 最適化前（640x360、25秒）: draw call 平均226・最大332、三角形 約129k、HUD+ミニマップ 5.2ms/フレーム、render 呼び出し CPU 57ms。
+  - 最適化: ① `VehicleManager.cull()`（毎フレーム）で420m超の車を非表示、95m超の車はホイール（1台4メッシュ、影パスで2倍）を非表示。② ミニマップの再描画を1フレームおき（shot モードは毎回）。
+  - 最適化後（同条件）: draw call 平均110・最大182、三角形 約121k、HUD+ミニマップ 2.7ms/フレーム、render 呼び出し CPU 42ms。
+  - 静的な街並み・景観は元々7メッシュにマージ済み。残る draw call の大半は車（1台5メッシュ）と歩行者（1人5メッシュ）。さらに削るなら InstancedMesh 化。
+- 仕上げ: README.md（概要・操作・システム・構成）。タイトル画面のキー一覧と保存情報に背景パネルを追加（砂浜の上で読めなかったため）。HUD のヒントに `M sound`。
+- スクショ4枚（1-start / 2-drive / 3-chase / 4-walk、1280x720、各 約125〜145KB）を撮り直し、全て Read で目視確認済み。
+- 最終確認: `MAKEFUN_OUTPUT_DIR=/tmp/gta-out node main.ts` 成功、2回出力が同一。game/ は 35 ファイル・約0.92MB、index.html 3.2KB、シンボリックリンクなし、`http(s):` の外部参照なし。shoot.mjs は errors/外部リクエストなし。
+- **未了**: README の make.fun バッジ（形式がリポジトリ内に記載なし。仕様が分かり次第 README 先頭に追加）。実機での fps 計測。
 
 ## 操作
 WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。

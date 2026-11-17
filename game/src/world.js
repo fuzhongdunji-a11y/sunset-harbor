@@ -40,6 +40,7 @@ export class World {
     this.rig = new CameraRig(camera);
     this.rig.yaw = s.heading;
     this.messages = []; // {text, kind} consumed by the HUD
+    this.events = []; // one-shot sound cues ('hitPed', 'mission', 'busted', 'wasted', 'door', 'carjack') consumed by audio
     this.cash = START_CASH;
     this.wanted = new Wanted((t, k) => this.notify(t, k));
     this.district = '';
@@ -85,6 +86,11 @@ export class World {
 
   notify(text, kind = 'info') {
     this.messages.push({ text, kind });
+  }
+
+  emit(type) {
+    if (this.events.length > 24) this.events.shift();
+    this.events.push(type);
   }
 
   get focusPoint() {
@@ -178,11 +184,13 @@ export class World {
     const p = this.player;
     this.rig.update(dt, p, mouse, this.collision);
     this.env.update(dt, this.camera, this.focusPoint);
+    this.vehicles.cull(this.camera.position.x, this.camera.position.z);
 
     const hits = this.peds.update(dt, { vehicles: this.vehicles.list, focus: this.focusPoint });
     for (const h of hits) {
       if (h.vehicle.driver?.isPlayer) {
         this.wanted.commit('hitPed');
+        this.emit('hitPed');
         this.notify('Pedestrian hit!', 'warn');
       }
     }
@@ -195,6 +203,7 @@ export class World {
         this.cash += done.reward;
         this.stats.missions++;
         this.saveRequested = true;
+        this.emit('mission');
         this.notify(`MISSION PASSED  +$${done.reward}`, 'mission');
         this.notify(`Next: ${this.missions.mission.title}`, 'info');
       }
@@ -251,6 +260,7 @@ export class World {
   _startFx(kind) {
     if (this.fx) return;
     this.fx = { kind, t: 0 };
+    this.emit(kind);
     this.notify(kind === 'wasted' ? 'WASTED' : 'BUSTED', 'warn');
   }
 
@@ -291,6 +301,7 @@ export class World {
     if (p.inCar) {
       if (Math.abs(p.vehicle.speedF) > 7) return this.notify('Slow down to get out', 'warn');
       if (!p.exit(this.collision, this.vehicles)) this.notify('No room to get out', 'warn');
+      else this.emit('door');
       return undefined;
     }
     const car = this._enterCandidate();
@@ -299,6 +310,7 @@ export class World {
       this.peds.ejectDriver(car.x + Math.cos(car.h) * 1.6, car.z - Math.sin(car.h) * 1.6, this.focusPoint);
       this.wanted.commit('carjack');
       this.notify('Carjacked!', 'warn');
+      this.emit('carjack');
     } else if (!car.owned && !car.stolen) {
       if (this._witnessed(car.x, car.z)) {
         this.wanted.commit('stealParked');
@@ -310,6 +322,7 @@ export class World {
     this.traffic.release(car);
     car.stolen = true;
     p.enter(car);
+    this.emit('door');
     return undefined;
   }
 

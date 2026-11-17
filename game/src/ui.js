@@ -29,7 +29,7 @@ export class Ui {
     $('continue-btn').classList.toggle('hidden', !save);
     const info = $('save-info');
     info.classList.toggle('hidden', !save);
-    if (save) info.textContent = `Saved game: $${save.cash.toLocaleString('en-US')}  \u00b7  ${save.completed} job${save.completed === 1 ? '' : 's'} done   (Enter = continue, N = new game)`;
+    if (save) info.textContent = `Saved: $${save.cash.toLocaleString('en-US')} \u00b7 ${save.completed} job${save.completed === 1 ? '' : 's'} done \u00b7 Enter continues, N starts over`;
     $('start-btn').textContent = save ? 'NEW GAME' : 'PRESS ENTER TO START';
   }
 
@@ -56,6 +56,11 @@ export class Ui {
     this.pauseEl.classList.add('hidden');
     this.input.requestLock();
     this.hooks.onResume();
+  }
+
+  // Small "sound off" tag shown on the title and pause cards.
+  setMuted(muted) {
+    for (const el of document.querySelectorAll('.mute-state')) el.textContent = muted ? 'sound off' : 'sound on';
   }
 
   // Shot mode: hide or show the title screen without starting the game.

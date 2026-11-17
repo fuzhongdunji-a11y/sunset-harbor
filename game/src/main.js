@@ -7,6 +7,8 @@ import { Minimap } from './minimap.js';
 import { Ui } from './ui.js';
 import { prepareShot } from './shots.js';
 import { loadSave, writeSave, clearSave } from './save.js';
+import { GameAudio } from './audio.js';
+import { startBench } from './bench.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -25,8 +27,18 @@ const world = new World(scene, camera, seed);
 window.__game = { world, renderer };
 const hud = new Hud();
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
+const audio = new GameAudio();
+window.__game.audio = audio;
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyM' && !e.repeat) {
+    audio.toggleMute();
+    ui.setMuted(audio.muted);
+    world.notify(audio.muted ? 'Sound off' : 'Sound on', 'info');
+  }
+});
 const ui = new Ui(input, {
   onStart(mode) {
+    audio.start(); // runs inside the click / key press that left the title screen
     if (mode === 'continue') {
       const save = loadSave();
       if (save) world.applySave(save);
@@ -38,9 +50,13 @@ const ui = new Ui(input, {
   },
   onPause() {
     writeSave(world);
+    audio.setPaused(true);
   },
-  onResume() {},
+  onResume() {
+    audio.setPaused(false);
+  },
 });
+ui.setMuted(audio.muted);
 if (!shot) ui.setSave(loadSave());
 
 function resize() {
@@ -52,7 +68,9 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+let mapFrame = 0;
 function drawMinimap() {
+  if (!shot && (mapFrame++ & 1)) return; // the minimap redraws at half the frame rate (it is the costliest 2D job)
   minimap.draw(world.player, world.vehicles, world.missions.target, world.rig.yaw, { peds: world.peds.list });
 }
 
@@ -61,6 +79,8 @@ if (shot) {
   drawMinimap();
   renderer.render(scene, camera);
   window.__ready = true;
+} else if (params.get('bench')) {
+  startBench({ world, hud, ui, renderer, drawMinimap, seconds: Number(params.get('secs')) || 30 });
 } else {
   let last = performance.now();
   let clock = 0;
@@ -81,6 +101,7 @@ if (shot) {
       const mouse = input.takeMouse();
       world.update(dt, input, mouse);
       hud.update(dt, world);
+      audio.update(dt, world);
       drawMinimap();
       saveClock += dt;
       if (world.saveRequested || saveClock > 10) {

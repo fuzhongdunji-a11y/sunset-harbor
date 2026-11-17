@@ -2,6 +2,8 @@
 import { CAR_TYPES, buildCarModel } from './vehicleModels.js';
 
 const IDLE_INPUT = { throttle: 0, steer: 0, hand: false };
+const CULL_FAR = 420; // beyond this a car is hidden (fog is nearly opaque by then)
+const WHEEL_NEAR = 95; // wheels are only drawn inside this range
 
 export class Vehicle {
   constructor(typeKey, paint, x, z, heading) {
@@ -26,6 +28,7 @@ export class Vehicle {
     this.locked = false; // police cruisers and wrecks cannot be entered
     this.wrecked = false;
     this.contact = null; // the car we touched this step
+    this.wheelsShown = true;
     const model = buildCarModel(typeKey, paint);
     this.group = model.group;
     this.chassis = model.chassis;
@@ -277,6 +280,19 @@ export class VehicleManager {
       b.vz -= (j * best.nz) / mb;
       a.impact = Math.max(a.impact, -rel);
       b.impact = Math.max(b.impact, -rel);
+    }
+  }
+
+  // Distance LOD, once per frame: far cars are not drawn at all, mid-range cars drop their wheel meshes (4 draw calls per car, twice with the shadow pass).
+  cull(cx, cz) {
+    for (const v of this.list) {
+      const d2 = (v.x - cx) * (v.x - cx) + (v.z - cz) * (v.z - cz);
+      v.group.visible = d2 < CULL_FAR * CULL_FAR || !!v.driver?.isPlayer;
+      const wheels = d2 < WHEEL_NEAR * WHEEL_NEAR;
+      if (wheels !== v.wheelsShown) {
+        v.wheelsShown = wheels;
+        for (const wl of v.wheels) wl.steer.visible = wheels;
+      }
     }
   }
 
