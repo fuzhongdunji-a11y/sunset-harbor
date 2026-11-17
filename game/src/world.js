@@ -1,4 +1,4 @@
-// world: assembles the city, environment, vehicles, player, camera and missions into one simulation with a single update().
+// world: assembles city, environment, vehicles, traffic, pedestrians, police, wanted level, missions and the player into one simulation with a single update().
 import * as THREE from '../vendor/three.module.min.js';
 import { generateCity } from './cityLayout.js';
 import { buildCity } from './cityBuilder.js';
@@ -10,10 +10,20 @@ import { PAINTS } from './vehicleModels.js';
 import { Player } from './player.js';
 import { CameraRig } from './cameraRig.js';
 import { MissionTracker } from './missions.js';
+import { RoadNet } from './roadNet.js';
+import { Traffic } from './traffic.js';
+import { Pedestrians } from './pedestrians.js';
+import { Police } from './police.js';
+import { Wanted } from './wanted.js';
+import { makeRng } from './rng.js';
 import { START_CASH } from './config.js';
 
 const TYPE_WEIGHTS = [['marlin', 0.3], ['pico', 0.2], ['vesper', 0.12], ['dune', 0.2], ['harborVan', 0.18]];
 const ENTER_RANGE = 2.6;
+const TRAFFIC_COUNT = 16;
+const PED_COUNT = 28;
+const FX_TIME = 2.8; // length of the WASTED / BUSTED screen
+const NO_INPUT = { down: () => false, pressed: () => false };
 
 export class World {
   constructor(scene, camera, seed = 1) {
@@ -29,13 +39,23 @@ export class World {
     this.player = new Player(scene, s.x, s.z, s.heading);
     this.rig = new CameraRig(camera);
     this.rig.yaw = s.heading;
-    this.missions = new MissionTracker(scene);
-    this.cash = START_CASH;
-    this.wanted = 0;
-    this.district = '';
     this.messages = []; // {text, kind} consumed by the HUD
+    this.cash = START_CASH;
+    this.wanted = new Wanted((t, k) => this.notify(t, k));
+    this.district = '';
     this.prompt = '';
-    this.focus = { x: s.x, z: s.z };
+    this.fx = null; // {kind: 'wasted' | 'busted', t}
+    this.saveRequested = false;
+    this.stats = { missions: 0 };
+
+    const rng = makeRng(seed * 4099 + 11);
+    this.net = new RoadNet(this.layout);
+    this.traffic = new Traffic(this.vehicles, this.net, rng);
+    this.peds = new Pedestrians(scene, this.net, rng, this.layout.groundHeightAt, PED_COUNT);
+    this.police = new Police(this.vehicles, this.net, rng, this.collision);
+    this.missions = new MissionTracker(this, scene);
+    this.traffic.populate(TRAFFIC_COUNT, s);
+    this.peds.populate(s);
   }
 
   _spawnParkedCars() {
@@ -50,6 +70,7 @@ export class World {
     };
     const sc = L.starterCar;
     this.starterCar = this.vehicles.spawn('marlin', 0xe4572e, sc.x, sc.z, sc.h);
+    this.starterCar.owned = true; // the player's own ride: no crime when taking it
     let count = 0;
     for (const slot of L.slots) {
       if (count >= 70) break;
@@ -70,15 +91,71 @@ export class World {
     return { x: this.player.px, z: this.player.pz };
   }
 
-  // Put the player behind the wheel of a vehicle (used by shots and mission setups).
+  // Put the player behind the wheel of a vehicle (used by shots, mission setups and loading a save).
   placeInCar(vehicle) {
     if (this.player.inCar) this.player.vehicle.driver = null;
+    this.traffic.release(vehicle);
+    vehicle.stolen = true;
     this.player.enter(vehicle);
+  }
+
+  // Everything the player's progress consists of, restored from a (sanitized) save.
+  applySave(save) {
+    const p = this.player;
+    this.cash = save.cash;
+    this.missions.restore(save.completed);
+    let { x, z } = save;
+    for (let r = 0; r < 14 && !this.collision.isFree(x, z, 1.6); r += 1) {
+      const a = r * 2.4;
+      x = save.x + Math.cos(a) * r * 1.5;
+      z = save.z + Math.sin(a) * r * 1.5;
+    }
+    if (p.inCar) this.placeOnFoot(this.player.vehicle);
+    p.x = x;
+    p.z = z;
+    p.y = this.layout.groundHeightAt(x, z);
+    p.heading = save.h;
+    p.vx = p.vz = 0;
+    this.rig.yaw = save.h;
+    if (save.car) {
+      for (const v of [...this.vehicles.list]) if (v.kind === 'parked' && !v.driver && v.distanceTo(x, z) < 6) this.vehicles.remove(v);
+      const v = this.vehicles.spawn(save.car.type, save.car.paint, x, z, save.h);
+      this.placeInCar(v);
+    }
+    this.wanted.clear();
+    this.police.clearAll();
+    this.traffic.scatter({ x, z });
+    this.peds.populate({ x, z });
+    this.rig.snap(p, this.collision);
+  }
+
+  // Detach the player from a car without placing them anywhere (the caller moves them).
+  placeOnFoot(vehicle) {
+    const p = this.player;
+    vehicle.driver = null;
+    vehicle.input.throttle = 0;
+    p.vehicle = null;
+    p.mode = 'foot';
+    p.person.group.visible = true;
   }
 
   update(dt, input, mouse) {
     const p = this.player;
+    if (this.fx) {
+      this.fx.t += dt;
+      input = NO_INPUT;
+      mouse = { dx: 0, dy: 0 };
+      if (this.fx.t > FX_TIME) this._respawn();
+    }
     if (input.pressed('KeyF')) this._toggleVehicle();
+
+    // AI decides once per frame; physics then runs in fixed sub-steps
+    const ctx = { vehicles: this.vehicles.list, points: this._obstaclePoints(), target: null };
+    const focus = this.focusPoint;
+    this.traffic.update(dt, ctx, focus);
+    const camFwd = { x: Math.sin(this.rig.yaw), z: Math.cos(this.rig.yaw) };
+    const arrest = this.fx ? null : this.police.update(dt, ctx, p, this.wanted, camFwd);
+    if (arrest === 'busted') this._startFx('busted');
 
     const steps = Math.max(1, Math.ceil(dt / (1 / 60)));
     const h = dt / steps;
@@ -90,18 +167,37 @@ export class World {
     this.afterStep(dt, mouse);
   }
 
+  _obstaclePoints() {
+    const pts = this.peds.roadPoints();
+    if (!this.player.inCar) pts.push({ x: this.player.x, z: this.player.z });
+    return pts;
+  }
+
   // Everything that runs once per rendered frame after the physics sub-steps.
   afterStep(dt, mouse) {
     const p = this.player;
     this.rig.update(dt, p, mouse, this.collision);
     this.env.update(dt, this.camera, this.focusPoint);
-    const done = this.missions.update(dt, p);
-    if (done) {
-      this.cash += done.reward;
-      this.notify(`MISSION PASSED  +$${done.reward}`, 'mission');
-      const next = this.missions.active;
-      if (next) this.notify(`Next: ${next.title}`, 'info');
-      else this.notify('All jobs done. Free roam in Costa Serena!', 'info');
+
+    const hits = this.peds.update(dt, { vehicles: this.vehicles.list, focus: this.focusPoint });
+    for (const h of hits) {
+      if (h.vehicle.driver?.isPlayer) {
+        this.wanted.commit('hitPed');
+        this.notify('Pedestrian hit!', 'warn');
+      }
+    }
+    this._playerCrimesAndDamage();
+    this.wanted.update(dt, this.police.nearest);
+
+    if (!this.fx) {
+      const done = this.missions.update(dt);
+      if (done) {
+        this.cash += done.reward;
+        this.stats.missions++;
+        this.saveRequested = true;
+        this.notify(`MISSION PASSED  +$${done.reward}`, 'mission');
+        this.notify(`Next: ${this.missions.mission.title}`, 'info');
+      }
     }
     const d = this.layout.districtAt(p.px, p.pz);
     if (d !== this.district) {
@@ -109,10 +205,85 @@ export class World {
       this.notify(d.toUpperCase(), 'district');
     }
     this.prompt = '';
-    if (!p.inCar) {
-      const car = this.vehicles.nearest(p.x, p.z, ENTER_RANGE);
-      if (car) this.prompt = `[F] Drive the ${car.type.name}`;
+    if (!p.inCar && !this.fx) {
+      const car = this._enterCandidate();
+      if (car) this.prompt = `[F] ${this._enterVerb(car)} the ${car.type.name}`;
     }
+  }
+
+  _enterCandidate() {
+    const p = this.player;
+    const car = this.vehicles.nearest(p.x, p.z, ENTER_RANGE);
+    if (!car || (car.driver?.ai && Math.abs(car.speedF) > 6)) return null;
+    return car;
+  }
+
+  _enterVerb(car) {
+    if (car.driver?.ai) return 'Hijack';
+    if (car.owned || car.stolen) return 'Drive';
+    return 'Steal';
+  }
+
+  _playerCrimesAndDamage() {
+    const p = this.player;
+    if (this.fx) return;
+    const pv = p.vehicle;
+    if (pv) {
+      const other = pv.contact;
+      if (other && pv.impact > 4 && other.kind === 'traffic') this.wanted.commit('hitCar');
+      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4);
+      if (pv.health <= 0) {
+        pv.wrecked = true;
+        this._startFx('wasted');
+      }
+      return;
+    }
+    // run over on foot
+    for (const v of this.vehicles.list) {
+      if (Math.abs(v.x - p.x) > 5 || Math.abs(v.z - p.z) > 5) continue;
+      if (Math.abs(v.speedF) > 8 && v.distanceTo(p.x, p.z) < 0.7) {
+        this._startFx('wasted');
+        break;
+      }
+    }
+  }
+
+  _startFx(kind) {
+    if (this.fx) return;
+    this.fx = { kind, t: 0 };
+    this.notify(kind === 'wasted' ? 'WASTED' : 'BUSTED', 'warn');
+  }
+
+  // After the WASTED / BUSTED screen: fine the player, drop them at the start point with a clean record.
+  _respawn() {
+    const p = this.player;
+    const kind = this.fx.kind;
+    const fine = Math.min(this.cash, kind === 'busted' ? 200 + 150 * this.wanted.stars : 300);
+    this.cash -= fine;
+    if (p.inCar) {
+      const v = p.vehicle;
+      this.placeOnFoot(v);
+      this.vehicles.remove(v); // wrecked or impounded
+    }
+    this.police.clearAll();
+    this.wanted.clear();
+    const s = this.layout.start;
+    p.x = s.x;
+    p.z = s.z;
+    p.y = this.layout.groundHeightAt(s.x, s.z);
+    p.heading = s.heading;
+    p.vx = p.vz = 0;
+    this.rig.yaw = s.heading;
+    this.rig.snap(p, this.collision);
+    this.missions.onPlayerDown();
+    this.fx = null;
+    this.saveRequested = true;
+    this.notify(kind === 'busted' ? `Booked and released. Fine $${fine}` : `Patched up at Costa General. Bill $${fine}`, 'info');
+  }
+
+  _witnessed(x, z) {
+    if (this.police.nearest < 45) return true;
+    return this.peds.list.some((q) => q.active && q.state !== 'down' && q.model.group.visible && Math.hypot(q.x - x, q.z - z) < 24);
   }
 
   _toggleVehicle() {
@@ -122,8 +293,23 @@ export class World {
       if (!p.exit(this.collision, this.vehicles)) this.notify('No room to get out', 'warn');
       return undefined;
     }
-    const car = this.vehicles.nearest(p.x, p.z, ENTER_RANGE);
-    if (car) p.enter(car);
+    const car = this._enterCandidate();
+    if (!car) return undefined;
+    if (car.driver?.ai) {
+      this.peds.ejectDriver(car.x + Math.cos(car.h) * 1.6, car.z - Math.sin(car.h) * 1.6, this.focusPoint);
+      this.wanted.commit('carjack');
+      this.notify('Carjacked!', 'warn');
+    } else if (!car.owned && !car.stolen) {
+      if (this._witnessed(car.x, car.z)) {
+        this.wanted.commit('stealParked');
+        this.notify('Someone saw you steal that car!', 'warn');
+      } else {
+        this.notify('Nobody saw you. Smooth.', 'info');
+      }
+    }
+    this.traffic.release(car);
+    car.stolen = true;
+    p.enter(car);
     return undefined;
   }
 

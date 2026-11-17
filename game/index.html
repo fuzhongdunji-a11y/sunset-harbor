@@ -15,12 +15,13 @@
       <div class="m-tag">MISSION</div>
       <div id="m-title"></div>
       <div id="m-obj"></div>
-      <div class="m-row"><span id="m-dist"></span><span id="m-reward"></span></div>
+      <div class="m-row"><span id="m-dist"></span><span id="m-time"></span><span id="m-reward"></span></div>
     </div>
 
     <div id="topright">
       <div id="cash">$0</div>
       <div id="stars" title="Wanted level"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>
+      <div id="bust" class="hidden"><div id="bust-bar"></div><span>BEING ARRESTED</span></div>
     </div>
 
     <div id="minimap-wrap">
@@ -31,11 +32,13 @@
     <div id="speedo" class="hidden">
       <div class="speed-line"><span id="speed-val">0</span><span class="unit">km/h</span></div>
       <div id="speed-track"><div id="speed-bar"></div></div>
+      <div id="hp-track" title="Car condition"><div id="hp-bar"></div></div>
       <div id="car-name"></div>
     </div>
 
     <div id="prompt" class="hidden"></div>
     <div id="toast"></div>
+    <div id="banner" class="hidden"></div>
     <div id="hints"></div>
   </div>
 
@@ -44,7 +47,11 @@
       <div class="kicker">COSTA SERENA &middot; OPEN-CITY CRIME ACTION</div>
       <h1>SUNSET<br>HARBOR</h1>
       <p class="tagline">Sun, palms and trouble. Steal a ride, run the coast road, make a name in a harbor town that never sits still.</p>
-      <button id="start-btn" type="button">PRESS ENTER TO START</button>
+      <div class="buttons">
+        <button id="continue-btn" type="button" class="hidden">CONTINUE</button>
+        <button id="start-btn" type="button">NEW GAME</button>
+      </div>
+      <div id="save-info" class="hidden"></div>
       <div class="controls">
         <div><b>W A S D</b><span>move / drive</span></div>
         <div><b>MOUSE</b><span>look (click to capture)</span></div>

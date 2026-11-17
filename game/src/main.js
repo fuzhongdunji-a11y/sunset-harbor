@@ -6,6 +6,7 @@ import { Hud } from './hud.js';
 import { Minimap } from './minimap.js';
 import { Ui } from './ui.js';
 import { prepareShot } from './shots.js';
+import { loadSave, writeSave, clearSave } from './save.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -25,13 +26,22 @@ window.__game = { world, renderer };
 const hud = new Hud();
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
 const ui = new Ui(input, {
-  onStart() {
+  onStart(mode) {
+    if (mode === 'continue') {
+      const save = loadSave();
+      if (save) world.applySave(save);
+    } else {
+      clearSave();
+    }
     world.rig.snap(world.player, world.collision);
     hud.show(true);
   },
-  onPause() {},
+  onPause() {
+    writeSave(world);
+  },
   onResume() {},
 });
+if (!shot) ui.setSave(loadSave());
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -43,8 +53,7 @@ window.addEventListener('resize', resize);
 resize();
 
 function drawMinimap() {
-  const m = world.missions.active;
-  minimap.draw(world.player, world.vehicles, m ? { x: m.x, z: m.z } : null, world.rig.yaw);
+  minimap.draw(world.player, world.vehicles, world.missions.target, world.rig.yaw, { peds: world.peds.list });
 }
 
 if (shot) {
@@ -55,6 +64,12 @@ if (shot) {
 } else {
   let last = performance.now();
   let clock = 0;
+  let saveClock = 0;
+  const saveNow = () => {
+    if (ui.state !== 'title' && !world.fx) writeSave(world);
+  };
+  window.addEventListener('pagehide', saveNow);
+  document.addEventListener('visibilitychange', () => document.hidden && saveNow());
   const frame = (now) => {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000);
@@ -67,6 +82,12 @@ if (shot) {
       world.update(dt, input, mouse);
       hud.update(dt, world);
       drawMinimap();
+      saveClock += dt;
+      if (world.saveRequested || saveClock > 10) {
+        world.saveRequested = false;
+        saveClock = 0;
+        saveNow();
+      }
     }
     input.endFrame();
     renderer.render(scene, camera);

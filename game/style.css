@@ -63,3 +63,20 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 .controls div { display: flex; gap: 10px; align-items: baseline; }
 .controls b { min-width: 76px; padding: 2px 8px; background: rgba(255, 255, 255, 0.92); color: #1b1f27; border-radius: 4px; text-align: center; font-size: 13px; text-shadow: none; }
 .controls span { color: #eef3f8; }
+
+/* wanted: searching stars flash, arrest meter, WASTED/BUSTED banner */
+#stars.search span.on { animation: flash 0.5s steps(2) infinite; }
+@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0.25; } }
+#bust { margin-top: 6px; width: 190px; margin-left: auto; height: 20px; background: rgba(0, 0, 0, 0.55); border-radius: 4px; position: relative; overflow: hidden; }
+#bust-bar { height: 100%; width: 0; background: linear-gradient(90deg, #2a6bff, #ff2a2a); }
+#bust span { position: absolute; inset: 0; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 2px; line-height: 20px; }
+#banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-size: 128px; font-weight: 900; font-style: italic; letter-spacing: 10px; }
+#banner.banner-wasted { color: #d8332a; text-shadow: 0 6px 0 rgba(0, 0, 0, 0.7); }
+#banner.banner-busted { color: #5d8cff; text-shadow: 0 6px 0 rgba(0, 0, 0, 0.7); }
+#m-time { color: #fff; }
+#m-time.late { color: #ff6a4d; }
+#hp-track { height: 6px; background: rgba(0, 0, 0, 0.45); border-radius: 3px; margin: 0 0 6px; overflow: hidden; }
+#hp-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #e4572e, #8be28b); }
+.buttons { display: flex; gap: 14px; align-items: center; }
+#continue-btn { pointer-events: auto; cursor: pointer; font: inherit; font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; background: linear-gradient(180deg, #4fb6e8, #2a7fb8); border: none; border-radius: 6px; padding: 14px 30px; box-shadow: 0 5px 0 #17506f, 0 8px 18px rgba(0, 0, 0, 0.45); }
+#save-info { margin-top: 12px; font-size: 15px; color: #eef3f8; letter-spacing: 1px; }

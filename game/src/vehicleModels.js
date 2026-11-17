@@ -7,6 +7,7 @@ export const CAR_TYPES = {
   pico: { name: 'Pico', body: 'hatch', len: 3.7, wid: 1.7, wheelbase: 2.3, maxSpeed: 35, accel: 15, brake: 28, maxReverse: 10, weight: 0.8 },
   vesper: { name: 'Vesper GT', body: 'coupe', len: 4.4, wid: 1.9, wheelbase: 2.6, maxSpeed: 52, accel: 24, brake: 38, maxReverse: 12, weight: 0.9 },
   dune: { name: 'Dune Pickup', body: 'pickup', len: 5.1, wid: 2.0, wheelbase: 3.1, maxSpeed: 37, accel: 14, brake: 28, maxReverse: 9, weight: 1.3 },
+  patrol: { name: 'Harbor PD Cruiser', body: 'sedan', len: 4.7, wid: 1.9, wheelbase: 2.8, maxSpeed: 45, accel: 23, brake: 36, maxReverse: 11, weight: 1.1 },
   harborVan: { name: 'Harbor Van', body: 'van', len: 5.2, wid: 2.0, wheelbase: 3.2, maxSpeed: 33, accel: 12, brake: 26, maxReverse: 9, weight: 1.5 },
 };
 
@@ -70,6 +71,10 @@ export function buildCarModel(typeKey, paint) {
       b.slab([-w * 0.86, -0.3 * L, w * 0.86, 0.12 * L], [-w * 0.74, -0.22 * L, w * 0.74, 0.0], 0.88, 1.46, { side: GLASS, top: paint });
     }
   }
+  if (typeKey === 'patrol') {
+    for (const sx of [-1, 1]) b.box(sx * w - 0.012, 0.42, -hl + 0.5, sx * w + 0.012, 0.66, hl - 0.5, 0x1b3a6b); // navy door stripe
+    b.box(-w * 0.55, 1.46, -0.7, w * 0.55, 1.54, -0.2, DARK); // light bar base
+  }
   b.box(-w * 0.98, 0.34, hl - 0.05, w * 0.98, 0.58, hl + 0.14, DARK); // front bumper
   b.box(-w * 0.98, 0.34, -hl - 0.14, w * 0.98, 0.58, -hl + 0.05, DARK); // rear bumper
   for (const s of [-1, 1]) {
@@ -85,6 +90,17 @@ export function buildCarModel(typeKey, paint) {
   chassis.add(mesh);
   group.add(chassis);
 
+  let lights = null;
+  if (typeKey === 'patrol') {
+    lights = {};
+    for (const [key, sx, color] of [['red', -1, 0xff2a2a], ['blue', 1, 0x2a6bff]]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.12, 0.42), new THREE.MeshBasicMaterial({ color }));
+      m.position.set(sx * w * 0.28, 1.6, -0.45);
+      chassis.add(m);
+      lights[key] = m;
+    }
+  }
+
   const wheels = [];
   const geo = getWheelGeometry();
   for (const sz of [1, -1]) {
@@ -98,5 +114,5 @@ export function buildCarModel(typeKey, paint) {
       wheels.push({ steer, spin, front: sz > 0 });
     }
   }
-  return { group, chassis, wheels, wheelRadius: WHEEL_R };
+  return { group, chassis, wheels, wheelRadius: WHEEL_R, lights };
 }

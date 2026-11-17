@@ -51,7 +51,7 @@ export class Minimap {
   }
 
   // missionPos: {x, z} or null; camYaw: direction the camera looks along.
-  draw(player, vehicles, missionPos, camYaw, zoomOverride) {
+  draw(player, vehicles, missionPos, camYaw, extras = {}, zoomOverride) {
     const g = this.ctx;
     const n = this.size;
     const R = n / 2;
@@ -68,18 +68,39 @@ export class Minimap {
     g.scale(zoom, zoom);
     g.translate(-u(player.px), -v(player.pz));
     g.drawImage(this.map, 0, 0);
+    const now = performance.now() / 1000;
     for (const car of vehicles.list) {
       if (car === player.vehicle) continue;
+      const police = car.kind === 'police';
+      const parked = car.kind === 'parked';
       g.save();
       g.translate(u(car.x), v(car.z));
       g.rotate(-car.h);
-      g.fillStyle = '#f2f2f2';
-      g.strokeStyle = 'rgba(20,24,30,0.85)';
-      g.lineWidth = 1;
       const w = car.type.wid * S, l = car.type.len * S;
-      g.fillRect(-w / 2, -l / 2, w, l);
-      g.strokeRect(-w / 2, -l / 2, w, l);
+      if (police) {
+        const blink = Math.floor(now * 6) % 2 === 0;
+        g.fillStyle = blink ? '#ff3b30' : '#3a78ff';
+        g.strokeStyle = '#ffffff';
+        g.lineWidth = 1.6;
+        g.fillRect(-5, -8, 10, 16);
+        g.strokeRect(-5, -8, 10, 16);
+      } else {
+        g.fillStyle = parked ? '#bfc5cc' : '#ffffff';
+        g.strokeStyle = 'rgba(20,24,30,0.85)';
+        g.lineWidth = 1;
+        g.fillRect(-w / 2, -l / 2, w, l);
+        g.strokeRect(-w / 2, -l / 2, w, l);
+      }
       g.restore();
+    }
+    if (extras.peds) {
+      g.fillStyle = 'rgba(255, 220, 120, 0.95)';
+      for (const p of extras.peds) {
+        if (!p.active || p.state === 'down' || !p.model.group.visible) continue;
+        g.beginPath();
+        g.arc(u(p.x), v(p.z), 1.8, 0, Math.PI * 2);
+        g.fill();
+      }
     }
     g.restore();
 

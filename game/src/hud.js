@@ -9,6 +9,7 @@ export class Hud {
       mTitle: $('m-title'), mObj: $('m-obj'), mDist: $('m-dist'), mReward: $('m-reward'),
       speed: $('speed-val'), speedo: $('speedo'), carName: $('car-name'), district: $('district'),
       prompt: $('prompt'), toast: $('toast'), hints: $('hints'), speedBar: $('speed-bar'),
+      banner: $('banner'), bust: $('bust'), bustBar: $('bust-bar'), hpBar: $('hp-bar'), mTime: $('m-time'),
     };
     this.cache = {};
     this.toastTimer = 0;
@@ -30,23 +31,34 @@ export class Hud {
     const p = world.player;
     const e = this.el;
     this._set('cash', e.cash, `$${world.cash.toLocaleString('en-US')}`);
-    if (this.cache.stars !== world.wanted) {
-      this.cache.stars = world.wanted;
-      e.stars.forEach((s, i) => s.classList.toggle('on', i < world.wanted));
-      e.stars[0].parentElement.classList.toggle('hot', world.wanted > 0);
+    const stars = world.wanted.stars;
+    if (this.cache.stars !== stars) {
+      this.cache.stars = stars;
+      e.stars.forEach((s, i) => s.classList.toggle('on', i < stars));
+      e.stars[0].parentElement.classList.toggle('hot', stars > 0);
     }
-    const m = world.missions.active;
-    if (m) {
-      this._set('mt', e.mTitle, m.title);
-      this._set('mo', e.mObj, m.objective);
-      this._set('md', e.mDist, `${Math.round(world.missions.distanceTo(p.px, p.pz))} m`);
-      this._set('mr', e.mReward, `Reward $${m.reward}`);
-    } else {
-      this._set('mt', e.mTitle, 'Free Roam');
-      this._set('mo', e.mObj, 'Explore Costa Serena. More jobs soon.');
-      this._set('md', e.mDist, '');
-      this._set('mr', e.mReward, '');
+    const searching = world.wanted.searching;
+    if (this.cache.search !== searching) {
+      this.cache.search = searching;
+      e.stars[0].parentElement.classList.toggle('search', searching);
     }
+    const bust = world.police.bustProgress;
+    e.bust.classList.toggle('hidden', bust <= 0.01);
+    if (bust > 0.01) e.bustBar.style.width = `${Math.round(bust * 100)}%`;
+    const fx = world.fx ? world.fx.kind : '';
+    if (this.cache.fx !== fx) {
+      this.cache.fx = fx;
+      e.banner.className = fx ? `banner-${fx}` : 'hidden';
+      e.banner.textContent = fx.toUpperCase();
+    }
+    const m = world.missions.view;
+    this._set('mt', e.mTitle, m.title);
+    this._set('mo', e.mObj, m.objective);
+    this._set('md', e.mDist, `${Math.round(m.dist)} m`);
+    const left = m.time === null ? null : Math.max(0, m.time);
+    this._set('mti', e.mTime, left === null ? `Step ${m.step}` : `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`);
+    e.mTime.classList.toggle('late', left !== null && left < 20);
+    this._set('mr', e.mReward, `Reward $${m.reward}`);
     const inCar = p.inCar;
     if (this.cache.inCar !== inCar) {
       this.cache.inCar = inCar;
@@ -59,6 +71,7 @@ export class Hud {
       const kmh = Math.round(p.vehicle.speedKmh);
       this._set('speed', e.speed, String(kmh));
       this._set('car', e.carName, p.vehicle.type.name);
+      e.hpBar.style.width = `${Math.round(p.vehicle.health)}%`;
       e.speedBar.style.width = `${Math.min(100, (p.vehicle.speedKmh / (p.vehicle.type.maxSpeed * 3.6)) * 100).toFixed(0)}%`;
     }
     this._set('district', e.district, world.district);

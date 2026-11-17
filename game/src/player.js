@@ -22,6 +22,7 @@ export class Player {
     this.vz = 0;
     this.jump = 0; // height above ground
     this.vy = 0;
+    this.isPlayer = true;
     this.mode = 'foot'; // 'foot' | 'car'
     this.vehicle = null;
     this.speed = 0;

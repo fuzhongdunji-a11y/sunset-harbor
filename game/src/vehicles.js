@@ -21,11 +21,17 @@ export class Vehicle {
     this.impact = 0; // strongest collision this frame (m/s), read by camera shake
     this.roll = 0;
     this.pitch = 0;
+    this.kind = 'parked'; // 'parked' | 'traffic' | 'police' (drives minimap colour and AI rules)
+    this.health = 100;
+    this.locked = false; // police cruisers and wrecks cannot be entered
+    this.wrecked = false;
+    this.contact = null; // the car we touched this step
     const model = buildCarModel(typeKey, paint);
     this.group = model.group;
     this.chassis = model.chassis;
     this.wheels = model.wheels;
     this.wheelRadius = model.wheelRadius;
+    this.lights = model.lights ?? null; // police light bar {red, blue}
     this._syncMesh();
   }
 
@@ -80,7 +86,15 @@ export class Vehicle {
     return { nx: -c * da + s * db, nz: s * da + c * db, depth };
   }
 
+  // True while an AI or the player is at the wheel.
+  get driven() {
+    return !!this.driver;
+  }
+
   update(dt, collision, groundHeightAt) {
+    // parked cars at rest skip the whole step
+    if (!this.driver && this.vx === 0 && this.vz === 0 && Math.abs(this.speedF) < 1e-3 && !this.wake) return;
+    this.wake = false;
     const T = this.type;
     const driven = !!this.driver;
     const inp = driven ? this.input : IDLE_INPUT;
@@ -123,6 +137,9 @@ export class Vehicle {
 
     this.impact = 0;
     this._collideStatic(collision);
+    if (!driven && Math.hypot(this.vx, this.vz) < 0.04 && Math.abs(vF) < 0.04) {
+      this.vx = this.vz = 0; // settle and go back to sleep
+    }
 
     const nvF = this.vx * Math.sin(this.h) + this.vz * Math.cos(this.h);
     const lat = -this.vx * Math.cos(this.h) + this.vz * Math.sin(this.h);
@@ -202,8 +219,9 @@ export class VehicleManager {
     this.list = [];
   }
 
-  spawn(typeKey, paint, x, z, heading) {
+  spawn(typeKey, paint, x, z, heading, kind = 'parked') {
     const v = new Vehicle(typeKey, paint, x, z, heading);
+    v.kind = kind;
     v.y = this.groundHeightAt(x, z);
     v._syncMesh();
     this.list.push(v);
@@ -211,7 +229,14 @@ export class VehicleManager {
     return v;
   }
 
+  remove(v) {
+    const k = this.list.indexOf(v);
+    if (k >= 0) this.list.splice(k, 1);
+    this.scene.remove(v.group);
+  }
+
   update(dt) {
+    for (const v of this.list) v.contact = null;
     for (const v of this.list) v.update(dt, this.collision, this.groundHeightAt);
     for (let i = 0; i < this.list.length; i++) {
       for (let j = i + 1; j < this.list.length; j++) this._collidePair(this.list[i], this.list[j]);
@@ -234,6 +259,9 @@ export class VehicleManager {
       }
     }
     if (!best) return;
+    a.contact = b;
+    b.contact = a;
+    a.wake = b.wake = true;
     const ma = a.type.weight, mb = b.type.weight;
     const total = ma + mb;
     a.x += best.nx * best.depth * (mb / total);
@@ -255,7 +283,7 @@ export class VehicleManager {
   nearest(x, z, maxDist) {
     let best = null, bd = maxDist;
     for (const v of this.list) {
-      if (v.driver) continue;
+      if (v.locked || (v.driver && v.driver.isPlayer)) continue;
       const d = v.distanceTo(x, z);
       if (d < bd) {
         bd = d;

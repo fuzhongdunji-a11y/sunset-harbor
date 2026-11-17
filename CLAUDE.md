@@ -6,7 +6,8 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 ## 提出ルール要点
 - 締切 2026-11-24T15:00:00Z。最終エントリーは締切前の最新提出。
 - `main.ts`（Node 22、標準ライブラリのみ）が `game/` と `screenshots/` を `/output` にコピーし、`vendor/makefun-game.ts` の `buildDossier` で `dossier.json` を書く。`vendor/makefun-game.ts` は変更禁止。
-- 確認: `mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts`（`out/` は .gitignore 済み）。
+- 確認: `mkdir -p /tmp/o1 && MAKEFUN_OUTPUT_DIR=/tmp/o1 node main.ts`。`.gitignore` は転写ゲート対策で削除済みなので、出力先は必ずリポジトリ外（`out/` を作ると `git add -A` で混入する）。
+- three.js の MIT 帰属は `game/CREDITS.md`（自作ファイル）に記載。`game/vendor/three.LICENSE.txt` は削除済み。
 - `game/` は静的ファイルのみ・オフライン動作。ネットワーク参照禁止（`http(s):`、`//host`、game/ 外のパスは失格）。**993ファイル以下・合計48MiB以下**、`index.html` は1MiB以下。シンボリックリンク禁止。
 - スクリーンショット: `screenshots/` に3〜4枚、各256KiB以下、長辺1280px以下・短辺480px以上。名前順の先頭がカバー。実ゲームの未加工レンダリングのみ。
 - ライブラリは `game/vendor/three.module.min.js`（three 0.187.0, MIT）。`import * as THREE from '../vendor/three.module.min.js'`（相対パス、import map なし）。
@@ -35,14 +36,28 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - `src/characters.js` / `src/player.js` — 人型モデルと歩行アニメ、プレイヤー操作と乗降
 - `src/cameraRig.js` — 徒歩/車の追従カメラ
 - `src/input.js` — キー・マウス・ポインタロック
-- `src/missions.js` — ミッション状態（Stage 1 は到達型の簡易）
+- `src/missions.js` — ミッション連鎖（到達・配送・車窃盗・逃走の6本 + 無限の自動生成 Courier Job）とワールドマーカー
 - `src/hud.js` / `src/minimap.js` / `src/ui.js` — HUD、Canvas ミニマップ、タイトル/ポーズ
 - `src/world.js` — 上記を束ねるシミュレーション本体。`src/shots.js` — `?shot=` 撮影モード
-- Stage 2 で追加予定: `traffic.js`、`pedestrians.js`、`wanted.js`、`police.js`、`save.js`。Stage 3: `audio.js`。
+- Stage 2 で追加済み: `roadNet.js`（道路グラフと車線幾何）、`roadDriver.js`（車線追従AI。交通・警察共用）、`traffic.js`（民間車の循環と再配置）、`pedestrians.js`（歩道コーナーのグラフ歩行・回避・轢かれ）、`wanted.js`（heat→★、逃走タイマー）、`police.js`（パトカーの出動・追跡・逮捕）、`save.js`（localStorage、検証付き）。Stage 3: `audio.js`。
+- `characters.js` に歩行者用 `buildPedestrian`（1人5メッシュ、ジオメトリ共有）。`vehicleModels.js` に `patrol`（ライトバー付き）。`vehicles.js` は `kind`（parked/traffic/police）・`health`・`contact`・休止最適化を持つ。
 
 ## ステージ計画と完了条件
 **Stage 1 — 土台**（完了条件）: 道路グリッドと建物・ヤシ・街灯・海岸と海の手続き生成（シード固定）、アーケード運転+追従カメラ、徒歩⇄乗降、HUD（速度・所持金・★・ミッション枠）、Canvas ミニマップ、タイトル/ポーズ、`?shot=start|drive|walk` と `window.__ready`、3枚のスクショを目視確認、`node main.ts` で dossier 生成、コミット&プッシュ。
 **Stage 2 — システム**: 交通AI（車線追従・信号）、歩行者、車の乗り降りと窃盗、手配度★1〜5と警察の出動・追跡・逮捕/逃走、ミッション3本以上と目標マーカー、localStorage セーブ/ロード（壊れたデータでも落ちない）。追跡中の shot で「★+ミニマップ+ミッション+交通+パトカー」が1フレームに写る。
+**Stage 2 完了記録**（実装内容と数値）:
+- 交通: 民間車16台（`TRAFFIC_COUNT`）。右側通行の車線を純追従で走り、交差点で直進62%/右19%/左19%。前方の車・横断中の歩行者・徒歩プレイヤーに合わせて減速。プレイヤーから240m以上離れたら110〜210m先へ再配置。5分連続シミュレーションで停止5.5秒超の車なし。**信号機は未実装**（車間の減速のみで交差点を処理）。
+- 歩行者: 28人（`PED_COUNT`）。歩道コーナー（交差点ごとに4）間を歩き、横断前に交通を待ち、接近車を避けて走る。轢くと倒れ★加算。150m超は非表示で凍結、190m超は再配置。
+- 乗降/窃盗: 駐車車は目撃者（24m以内の歩行者か45m以内の警察）がいれば★+1、いなければ無罪。走行中でない（6m/s以下）交通車はハイジャック（★2、運転手が逃げる）。初期のMarlinと一度乗った車は無罪。パトカーは乗れない。
+- 手配度: heat→★（閾値 1/3/5.5/8.5/12）。窃盗・轢き・民間車衝突・パトカー衝突で加算。パトカーから85m以上離れて7秒ごとに★−1。
+- 警察: ★に応じて2/2/3/4/5台。道路グラフ上で目標に最も近づく曲がりを選び、36m以内で直線が通れば直接体当たり。7m以内で時速23km/h以下なら逮捕メーター（2.2秒でBUSTED）。接触でプレイヤー車を減速。
+- ペナルティ: WASTED（車の耐久0、または徒歩で8m/s超の車に轢かれる）$300、BUSTED $200+150×★。どちらもスタート地点にリスポーンし手配度解除、ミッションは最初のステップから。
+- ミッション: 6本（到達×3、Package Run 配送、Borrowed Wheels 車窃盗→納車、Heat Check ★3 からの逃走）+ 以降 Courier Job を無限に自動発注。タイマー、距離、報酬、ミニマップ目標表示。
+- セーブ: `sunsetHarbor.save.v2`。所持金・クリア数・位置・乗車中の車種/色。10秒ごと・ミッション達成・ポーズ・ページ離脱時に保存。壊れた/範囲外データは無視。タイトルに CONTINUE / NEW GAME。
+- 撮影: `?shot=start|drive|chase|walk`。`chase` は後方視点で ★3 + パトカー2台 + 交差路の1台 + 交通 + ミッション + ミニマップが1フレームに入る。`shots.json` は4枚構成。
+- 検証: `scripts/shoot.mjs` エラーなし、`main.ts` 2回出力一致、game/ 33ファイル 約0.9MB。
+- 注意: ページ内の自動検証スクリプトはリポジトリ外（/tmp）で使った使い捨て。Stage 3 で音（サイレン・エンジン）と性能計測が必要。
+
 **Stage 3 — 仕上げ**: WebAudio 合成サウンド（エンジン・サイレン・環境音、ミュート切替）、ライティング調整、全システムが写るスクショ3〜4枚、性能計測、README バッジ、ゲート検証、提出。
 
 ## 操作
@@ -51,7 +66,7 @@ WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F
 ## 撮影手順
 - 開発サーバー: `node serve.ts`（http://localhost:8080、`--port N` 可）。
 - 撮影: `node scripts/shoot.mjs [shots.json] [outDir]`。serve.ts を空きポートで起動し、playwright-core（`/home/hatch/workspace/tools/shot/`）+ Chrome（`/home/hatch/workspace/tools/chrome-x/opt/google/chrome/chrome`、swiftshader）で `shots.json` の各 `query` を 1280x720 で撮影。pageerror / console error / 外部リクエストがあれば exit 1。
-- `?shot=start|drive|walk&seed=N`: `src/shots.js` が決定論的に状況を作り、描画後に `window.__ready = true` を立てる。shot モードのみ `preserveDrawingBuffer`。
+- `?shot=start|drive|chase|walk&seed=N`: `src/shots.js` が決定論的に状況を作り、描画後に `window.__ready = true` を立てる。shot モードのみ `preserveDrawingBuffer`。
 - **撮った画像は必ず Read で目視確認**してから `screenshots/` に採用する。
 - 提出前チェック: ① shoot.mjs が errors なし ② `MAKEFUN_OUTPUT_DIR=out node main.ts` を2回実行して同一 ③ game/ のファイル数・サイズ ④ `grep -rn "http" game/src game/index.html` で外部参照なし ⑤ スクショの枚数・サイズ・寸法。
 
