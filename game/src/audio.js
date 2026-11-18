@@ -51,6 +51,111 @@ export class GameAudio {
     this._buildEngine();
     this._buildSiren();
     this._buildWaves();
+    this._buildRotor();
+  }
+
+  // Costa Air-1 rotor: looped noise through a low-pass (cutoff Doppler-shifted), chopped by a 12.5 Hz saw LFO for the blade slap, plus a 62.5 Hz triangle sub-thump.
+  // The whole bus sits at exactly 0 gain while Air-1 is not flying.
+  _buildRotor() {
+    const ctx = this.ctx;
+    this.rotorGain = ctx.createGain();
+    this.rotorGain.gain.value = 0;
+    this.rotorLp = ctx.createBiquadFilter();
+    this.rotorLp.type = 'lowpass';
+    this.rotorLp.frequency.value = 280;
+    const amp = ctx.createGain();
+    amp.gain.value = 0.55;
+    const n = this._noise();
+    n.connect(this.rotorLp).connect(amp).connect(this.rotorGain);
+    n.start();
+    this.rotorLfo = ctx.createOscillator();
+    this.rotorLfo.type = 'sawtooth';
+    this.rotorLfo.frequency.value = 12.5;
+    this.rotorLfoDepth = ctx.createGain();
+    this.rotorLfoDepth.gain.value = 0;
+    this.rotorLfo.connect(this.rotorLfoDepth).connect(amp.gain);
+    this.rotorLfo.start();
+    const sub = ctx.createOscillator();
+    sub.type = 'triangle';
+    sub.frequency.value = 62.5;
+    const subGain = ctx.createGain();
+    subGain.gain.value = 0.7;
+    sub.connect(subGain).connect(this.rotorGain);
+    sub.start();
+    this.rotorGain.connect(this.master);
+    this.rotorOff = true;
+    this.rotorLevel = 0; // the gain the bus is heading for (read by the checks)
+  }
+
+  // dist: metres to Air-1, closing: m/s it approaches (negative = receding), active: false hard-gates to 0.
+  updateRotorAudio(dist, closing, active) {
+    if (!this.ctx || !this.rotorGain) return;
+    const t = this.ctx.currentTime;
+    const g = this.rotorGain.gain;
+    if (!active) {
+      this.rotorLevel = 0;
+      if (!this.rotorOff) {
+        this.rotorOff = true;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(g.value, t);
+        g.linearRampToValueAtTime(0, t + 0.1);
+        g.setValueAtTime(0, t + 0.11); // pin it at exactly 0.000 so no tail of the setTarget curve lingers
+        this.rotorLfoDepth.gain.cancelScheduledValues(t);
+        this.rotorLfoDepth.gain.setValueAtTime(this.rotorLfoDepth.gain.value, t);
+        this.rotorLfoDepth.gain.linearRampToValueAtTime(0, t + 0.1);
+      }
+      return;
+    }
+    if (this.rotorOff) {
+      this.rotorOff = false;
+      g.cancelScheduledValues(t);
+      this.rotorLfoDepth.gain.cancelScheduledValues(t);
+    }
+    this.rotorLevel = 0.22 / (1 + dist / 45);
+    g.setTargetAtTime(this.rotorLevel, t, 0.12);
+    this.rotorLfoDepth.gain.setTargetAtTime(0.45, t, 0.12);
+    const shift = Number.isFinite(closing) ? Math.max(-90, Math.min(140, closing * 3.2)) : 0; // Doppler: +140 Hz closing at 44 m/s, -90 Hz receding
+    this.rotorLp.frequency.setTargetAtTime(280 + shift, t, 0.1);
+  }
+
+  // PA squelch (80 ms band-passed noise) then two 90 ms square tones, 1046 -> 1397 Hz.
+  playAirLockChirp() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = this._noise(false);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 1650;
+    f.Q.value = 3.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    n.connect(f).connect(g).connect(this.master);
+    n.start(t, Math.random() * 0.5, 0.09);
+    this._tone(1046, t + 0.09, 0.09, 'square', 0.06);
+    this._tone(1397, t + 0.19, 0.09, 'square', 0.06);
+  }
+
+  // Pod release: a 220 ms sine whistle falling 1800 -> 520 Hz.
+  playSpikeDrop() {
+    if (this.ctx) this._tone(1800, this.ctx.currentTime, 0.22, 'sine', 0.1, 520);
+  }
+
+  // Tyre blow-out: 140 ms 3200 Hz band-passed noise burst and a 45 ms 95 Hz thud.
+  playTirePuncture() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = this._noise(false);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 3200;
+    f.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.4, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    n.connect(f).connect(g).connect(this.master);
+    n.start(t, Math.random() * 0.5, 0.16);
+    this._tone(95, t, 0.045, 'sine', 0.35);
   }
 
   _noise(loop = true) {
@@ -237,6 +342,8 @@ export class GameAudio {
     this._alarm(dt, world.armored, p, t);
     this.ambient.update(dt, world.ambient.active, t);
     this.boat.update(dt, world, t);
+    const air = world.air;
+    this.updateRotorAudio(air ? air.audio.dist : 999, air ? air.audio.closing : 0, !!air && air.active && !world.fx);
     for (const e of events) this._event(e);
   }
 
@@ -324,6 +431,9 @@ export class GameAudio {
   _event(type) {
     if (type.startsWith('amb')) this.ambient.event(type);
     else if (type === 'boatSlam' || type === 'cratePing' || type === 'patrolHorn' || type === 'boatBoost' || type === 'cbdStart') this.boat.event(type);
+    else if (type === 'airLock') this.playAirLockChirp();
+    else if (type === 'airSpikeDrop') this.playSpikeDrop();
+    else if (type === 'airPuncture') this.playTirePuncture();
     else if (type === 'icptStart') this._jingle([440, 554, 659], 0.08, 'sine', 0.1);
     else if (type === 'icptEvade') this._tone(300, this.ctx.currentTime, 0.4, 'sawtooth', 0.09, 900);
     else if (type === 'icptDone') this._jingle([659, 880, 1175, 1568], 0.07, 'triangle', 0.14);

@@ -5,8 +5,14 @@ const IDLE_INPUT = { throttle: 0, steer: 0, hand: false };
 const CULL_FAR = 420; // beyond this a car is hidden (fog is nearly opaque by then)
 const WHEEL_NEAR = 95; // wheels are only drawn inside this range
 
+const PUNCTURE = { time: 9.0, top: 0.55, grip: 0.48, hit: 0.62 }; // Air-1 Spike-Pod run-flat: seconds, top-speed, lateral-grip and instant-speed multipliers
+let nextVehicleId = 1;
+
 export class Vehicle {
   constructor(typeKey, paint, x, z, heading) {
+    this.id = nextVehicleId++; // unique for the session: Air-1 remembers which car it locked onto (Cold Swap)
+    this.puncturedTimer = 0; // seconds of run-flat left after a Spike-Pod hit
+    this.yawKick = 0; // one-shot yaw rate (rad/s) from the blow-out, decays quickly
     this.typeKey = typeKey;
     this.type = CAR_TYPES[typeKey];
     this.paint = paint;
@@ -57,6 +63,18 @@ export class Vehicle {
 
   get speedKmh() {
     return Math.abs(this.speedF) * 3.6;
+  }
+
+  // A tyre blows: speed drops to 0.62x at once, top speed 0.55x and lateral grip 0.48x for 9 s, with a one-shot yaw kick (rad/s, signed).
+  puncture(kick) {
+    if (this.puncturedTimer > 0) return; // one blow-out at a time: a second strip must not stack the 0.62x drop or restart the 9 s clock
+    kick = Math.max(-0.35, Math.min(0.35, kick)); // brief: one-shot yaw kick of at most +/-0.35 rad/s
+    this.puncturedTimer = PUNCTURE.time;
+    this.vx *= PUNCTURE.hit;
+    this.vz *= PUNCTURE.hit;
+    this.speedF *= PUNCTURE.hit;
+    this.yawKick = kick;
+    this.wake = true;
   }
 
   // Distance from a world point to the car's oriented rectangle (0 when inside).
@@ -118,13 +136,16 @@ export class Vehicle {
     const sh = Math.sin(this.h), ch = Math.cos(this.h);
     let vF = this.vx * sh + this.vz * ch;
     let vR = -this.vx * ch + this.vz * sh;
+    const flat = this.puncturedTimer > 0;
+    if (flat) this.puncturedTimer = Math.max(0, this.puncturedTimer - dt);
+    const topSpeed = flat ? T.maxSpeed * PUNCTURE.top : T.maxSpeed;
 
     if (driven) {
       if (inp.throttle > 0) {
         if (vF < -0.5) vF = Math.min(0, vF + T.brake * dt);
         else {
           // punchy launch off the line, strong mid-range pull, soft top end
-          const r = Math.max(0, vF) / T.maxSpeed;
+          const r = Math.max(0, vF) / topSpeed;
           const launch = 1 + 0.4 * Math.max(0, 1 - Math.max(0, vF) / 8);
           const scale = this.driver.isPlayer ? 0.72 : 1; // the player's cars build speed over several seconds so the pull is felt; AI keeps its old pace
           vF += T.accel * this.accelMultiplier * scale * inp.throttle * launch * (1 - Math.pow(r, 1.25)) * dt;
@@ -137,13 +158,14 @@ export class Vehicle {
         vF = Math.abs(vF) <= drag ? 0 : vF - Math.sign(vF) * drag;
       }
       if (inp.hand) vF *= Math.exp(-(inp.throttle > 0 ? 0.55 : 1.0) * dt); // keep the gas down and the slide carries its speed
+      if (flat && vF > topSpeed) vF -= (vF - topSpeed) * Math.min(1, 7 * dt); // run-flat cap: settles onto 0.55x top speed within a second
     } else {
       // parked: strong friction so bumped cars roll to a stop quickly
       const drag = (6 + Math.abs(vF) * 0.3) * dt;
       vF = Math.abs(vF) <= drag ? 0 : vF - Math.sign(vF) * drag;
     }
     // grip eases back after a handbrake slide instead of snapping, so the car settles out of a drift
-    const gripTarget = driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9;
+    const gripTarget = (driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9) * (flat ? PUNCTURE.grip : 1);
     this.grip += (gripTarget - this.grip) * Math.min(1, (gripTarget < this.grip ? 20 : 5) * dt);
     this.slip = Math.abs(vR);
     vR *= Math.exp(-this.grip * dt);
@@ -157,6 +179,11 @@ export class Vehicle {
     if (inp.hand && Math.abs(vF) > 6) yaw *= 1.45;
     // self-aligning assist for the human driver: the nose follows the slide, so a slide is catchable (and a handbrake turn still swings)
     if (driven && this.driver.isPlayer && !inp.hand && Math.abs(vF) > 4) yaw -= vR * 0.16;
+    if (this.yawKick !== 0) {
+      yaw += this.yawKick; // blow-out swing, dies away in about a second
+      this.yawKick *= Math.exp(-3 * dt);
+      if (Math.abs(this.yawKick) < 0.01) this.yawKick = 0;
+    }
 
     // recompose with the old basis, then turn the car: the sideways slip it creates is what decays through grip
     this.vx = sh * vF - ch * vR;

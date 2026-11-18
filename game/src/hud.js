@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { EVADE_TIME } from './wanted.js';
 import { CREST_TOTAL, QUOTA, GROUP_NAME, MILESTONES, nextMilestone } from './crests.js';
+import { S as MAP_S, X_MAX as MAP_X, Z_MAX as MAP_Z } from './minimap.js';
 
 const $ = (id) => document.getElementById(id);
 const HINT_DIM_AFTER = 14; // seconds of play before the control hints fade back
@@ -28,6 +29,7 @@ export class Hud {
       cbd: $('cbd'), cbdPips: [...document.querySelectorAll('#cbd-pips i')], cbdCount: $('cbd-count'), cbdTime: $('cbd-time'),
       cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
     };
+    this._buildAir();
     this.tmp = new THREE.Vector3();
     this.crestTimer = 0;
     this.resultTimer = 0;
@@ -278,6 +280,147 @@ export class Hud {
     }
   }
 
+  // Costa Air-1 overlay, created here (no markup in index.html): the status pill under the stars, the spotlight glare vignette and the Scanner Ghost toast.
+  _buildAir() {
+    const mk = (id, css, parent, html = '') => {
+      const d = document.createElement('div');
+      d.id = id;
+      d.style.cssText = css;
+      d.innerHTML = html;
+      parent.appendChild(d);
+      return d;
+    };
+    this.air = {
+      glare: mk('air-glare', 'position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse 70% 55% at 50% 0%,rgba(220,242,255,0.18),rgba(220,242,255,0.07) 45%,rgba(220,242,255,0) 75%);', this.root),
+      pill: mk('air-pill', 'display:none;width:142px;height:22px;margin:6px 0 0 auto;position:relative;box-sizing:border-box;border-radius:4px;background:rgba(12,16,24,0.72);border-left:3px solid #fff;font:italic 800 11px/19px system-ui,sans-serif;letter-spacing:1px;color:#fff;text-align:center;overflow:hidden;white-space:nowrap;', this.el.vouch.parentElement, '<span></span><i style="position:absolute;left:0;bottom:0;height:3px;width:0;background:#fff"></i>'),
+      cloak: mk('air-cloak', 'display:none;width:142px;margin:4px 0 0 auto;padding:2px 0;box-sizing:border-box;border-radius:4px;background:rgba(12,16,24,0.72);border-left:3px solid #4deeea;font:italic 800 11px/16px system-ui,sans-serif;letter-spacing:1px;color:#4deeea;text-align:center;', this.el.vouch.parentElement, 'DECOY CLOAK'),
+      toast: mk('air-toast', 'display:none;position:absolute;left:50%;top:15%;transform:translateX(-50%);padding:10px 26px;border-radius:6px;background:linear-gradient(90deg,rgba(12,16,24,0.88),rgba(10,40,48,0.88));border:2px solid #ffd23f;box-shadow:0 0 18px rgba(77,238,234,0.55);font:italic 900 22px/1.2 system-ui,sans-serif;letter-spacing:2px;color:#ffe27a;text-shadow:0 0 10px rgba(77,238,234,0.7);white-space:nowrap;pointer-events:none;', this.root),
+    };
+    this.air.label = this.air.pill.firstChild;
+    this.air.bar = this.air.pill.lastChild;
+  }
+
+  // Air-1 pill (state + lock / countdown bar), glare vignette and the 4 s Scanner Ghost banner.
+  _air(world) {
+    const a = this.air;
+    const ap = world.air;
+    if (!ap) return;
+    const v = ap.view;
+    const on = ap.active && !world.fx;
+    const key = on ? v.label + v.color : '';
+    if (this.cache.airKey !== key) {
+      this.cache.airKey = key;
+      a.pill.style.display = on ? 'block' : 'none';
+      a.pill.style.borderLeftColor = v.color;
+      a.pill.style.color = v.color;
+      a.bar.style.background = v.color;
+      a.label.textContent = v.label;
+    }
+    if (on) {
+      a.bar.style.width = `${Math.round(v.fill * 100)}%`;
+      a.pill.style.opacity = v.pulse ? (Math.floor(ap.time * 8) % 2 ? '1' : '0.6') : '1'; // 4 Hz pulse on VISUAL LOCK (driven by the air clock, so shots are deterministic)
+    }
+    const cloak = on && v.cloak;
+    if (this.cache.airCloak !== cloak) {
+      this.cache.airCloak = cloak;
+      a.cloak.style.display = cloak ? 'block' : 'none';
+    }
+    const glare = on ? Math.round(v.glare * 20) / 20 : 0;
+    if (this.cache.airGlare !== glare) {
+      this.cache.airGlare = glare;
+      a.glare.style.opacity = String(glare);
+    }
+    const t = ap.toast;
+    const txt = t ? `SCANNER GHOST — AIR-1 EVADED +$${t.amount.toLocaleString('en-US')}` : '';
+    if (this.cache.airToast !== txt) {
+      this.cache.airToast = txt;
+      a.toast.style.display = t ? 'block' : 'none';
+      a.toast.textContent = txt;
+    }
+  }
+
+  // Minimap overlay, drawn after Minimap.draw on the same canvas with the same transform (2 px per metre, camera heading up):
+  // the searchlight disc, the rotor icon (chevron + spinning X in alternating red / blue) and a yellow-black tick per armed Spike-Pod.
+  drawAirMinimap(minimap, world, camYaw) {
+    const m = world.air?.mapView;
+    if (!m) return;
+    const g = minimap.ctx;
+    const R = minimap.size / 2;
+    const S = MAP_S; // same pixels-per-metre and origin as the pre-rendered map, imported so the overlay can never drift out of register
+    const u = (x) => (MAP_X - x) * S, vv = (z) => (MAP_Z - z) * S;
+    const zoom = minimap.zoom ?? 1;
+    const p = world.player;
+    const inv = 1 / zoom;
+    g.save();
+    g.beginPath();
+    g.arc(R, R, R - 3, 0, Math.PI * 2);
+    g.clip();
+    g.translate(R, R);
+    g.rotate(camYaw);
+    g.scale(zoom, zoom);
+    g.translate(-u(p.px), -vv(p.pz));
+    const now = m.time;
+    // spotlight ground disc
+    g.fillStyle = m.locked ? 'rgba(255, 90, 80, 0.40)' : 'rgba(216, 242, 255, 0.28)';
+    g.beginPath();
+    g.arc(u(m.disc.x), vv(m.disc.z), m.disc.R * S, 0, Math.PI * 2);
+    g.fill();
+    // spike-pod ticks: 6 x 2 px bars along the strip, a pulsing ring while the pod is still falling
+    for (const pod of m.pods) {
+      g.save();
+      g.translate(u(pod.tx), vv(pod.tz));
+      g.scale(inv, inv);
+      if (pod.state === 'drop') {
+        g.strokeStyle = '#ffd23f';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(0, 0, 5 + 3 * Math.abs(Math.sin(now * 6)), 0, Math.PI * 2);
+        g.stroke();
+      } else {
+        g.rotate(-pod.hl); // the strip runs across the lane
+        g.fillStyle = '#ffd23f';
+        g.fillRect(-3, -1, 6, 2);
+        g.fillStyle = '#15161a';
+        g.fillRect(-1.5, -1, 1.5, 2);
+        g.fillRect(1.5, -1, 1.5, 2);
+      }
+      g.restore();
+    }
+    // rotor icon
+    const dx = (u(m.x) - u(p.px)) * zoom, dy = (vv(m.z) - vv(p.pz)) * zoom;
+    g.restore();
+    if (Math.hypot(dx, dy) < R - 12) {
+      g.save();
+      g.translate(R, R);
+      g.rotate(camYaw);
+      g.translate(dx, dy);
+      g.scale(1.45, 1.45); // the 440 px canvas is shown at ~236 css px, so the briefed 9 px chevron is drawn 1.45x to stay legible next to the player arrow
+      const col =Math.floor(now * 6) % 2 ? '#ff3b3b' : '#3b8dff';
+      g.rotate(-m.yaw); // still in the map frame: the chevron points along the nose (map x = -x, y = -z)
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = 'rgba(12,16,24,0.9)';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(0, -9);
+      g.lineTo(5.5, 5);
+      g.lineTo(0, 2);
+      g.lineTo(-5.5, 5);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.rotate(m.yaw + now * 12); // spinning X of the rotor
+      g.strokeStyle = col;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(-8, -8);
+      g.lineTo(8, 8);
+      g.moveTo(8, -8);
+      g.lineTo(-8, 8);
+      g.stroke();
+      g.restore();
+    }
+  }
+
   show(visible) {
     this.root.classList.toggle('hidden', !visible);
   }
@@ -300,6 +443,7 @@ export class Hud {
     this._armored(world, dt);
     this._crests(world, dt);
     this._ambient(world, dt);
+    this._air(world);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);
     const bust = Math.max(world.police.bustProgress, world.patrol.bustProgress);

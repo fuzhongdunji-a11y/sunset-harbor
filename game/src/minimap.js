@@ -1,10 +1,10 @@
 // minimap: Canvas 2D radar. The static city is pre-rendered once; each frame it is rotated so the camera heading points up.
 import { WORLD } from './config.js';
 
-const S = 2; // pixels per metre in the pre-rendered map
-const X_MAX = 350;
+export const S = 2; // pixels per metre in the pre-rendered map (hud.js draws the Air-1 overlay with the same transform)
+export const X_MAX = 350;
 const Z_MIN = -310;
-const Z_MAX = 440;
+export const Z_MAX = 440;
 const PAL = {
   sea: '#1f6f9c', shallow: '#3b9cc4', grass: '#a3c785', sand: '#f4e2b2', park: '#6fb25e', pier: '#a97c4e', quay: '#c4bfb2',
   block: '#eadfc8', kerb: '#c9bda4', road: '#3a4350', lane: '#f2d675', tall: '#6f7f93', low: '#b8a88f', cargo: '#7d8a97',
@@ -79,7 +79,7 @@ export class Minimap {
     g.scale(zoom, zoom);
     g.translate(-u(player.px), -v(player.pz));
     g.drawImage(this.map, 0, 0);
-    const now = performance.now() / 1000;
+    const now = extras.now ?? performance.now() / 1000; // extras.now lets a screenshot preset freeze the blink/pulse clock
     for (const car of vehicles.list) {
       if (car === player.vehicle || car.kind === 'target') continue; // the intercept quarry gets its own triangle
       const police = car.kind === 'police';

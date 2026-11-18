@@ -4,6 +4,7 @@ export const CRIME = { stealParked: 1.0, carjack: 3.0, hitPed: 1.2, hitCar: 0.7,
 // Sun-Crest milestone perks that touch the wanted system (the rest live in crests.js)
 export const MILESTONE_EVADE_SCALE = 0.8;
 const SEE_RANGE = 85; // police closer than this keep the search alive
+const AIR_PING_TTL = 2.5; // seconds an Air-1 position broadcast stays valid (it is re-sent every 1.0 s while locked)
 export const EVADE_TIME = 7; // seconds out of sight per star lost
 
 export class Wanted {
@@ -20,6 +21,47 @@ export class Wanted {
     this.evadeScale = 1; // 0.8 once Sun-Crest milestone 30 is reached: stars wear off 20% sooner
     this.vouch = 0; // banked Police Vouch (0 or 1, saved): forgives the next star the moment it is earned
     this.vouchTimer = 0; // seconds until a pending redemption fires (a short beat so the star flash registers)
+    this.airFreeze = false; // Air-1 has a visual lock: stars cannot wear off
+    this.airDecayBoost = 1; // 1.25 while Air-1 searches and no cruiser sees the player
+    this.airTarget = null; // {x, z, age}: last position Air-1 radioed to the cruisers; dropped after AIR_PING_TTL seconds without a new ping
+    this.airPings = 0;
+    this.onZero = null; // set by airpursuit.js: fired whenever the level reaches 0 stars, with the peak of the chase
+    this._nearest = Infinity;
+  }
+
+  // Air-1 LOCKED: pause the evade timer so the level cannot drop while the spotlight holds the player.
+  setAirLockFreeze(on) {
+    this.airFreeze = !!on;
+    if (on) this.evade = 0;
+  }
+
+  // Air-1 SEARCHING timed out: one star off. A single star stays if a cruiser still has eyes on the player.
+  applyAirSearchDrop() {
+    if (this.stars <= 0) return;
+    let n = this.stars - 1;
+    if (n === 0 && this._nearest < SEE_RANGE) n = 1;
+    this.evade = 0;
+    if (n === this.stars) return;
+    this.heat = n === 0 ? 0 : STAR_HEAT[n];
+    this.stars = n;
+    if (n === 0) this._reachedZero();
+    else this.notify(`Air-1 gave up  ${'★'.repeat(n)}`, 'warn');
+  }
+
+  // Air-1 radios the exact player position to every cruiser (they are on the player's tail already; this keeps the ground search from timing out).
+  broadcastAirTarget(pos) {
+    this.airTarget = { x: pos.x, z: pos.z, age: 0 };
+    this.airPings++;
+    this.evade = 0;
+  }
+
+  // The level just hit 0. `escape` = the player shook the police off (pays the LOST THEM bonus); vouchers, repairs and respawns pass false.
+  _reachedZero(escape = true) {
+    const peak = this.peak;
+    this.peak = 0;
+    this.evade = 0;
+    if (escape && this.hooks.onEscape) this.hooks.onEscape(peak);
+    if (this.onZero) this.onZero(peak);
   }
 
   // Roadside repair reward. At 1+ stars it clears the level now ('cleared'); otherwise it banks one vouch ('banked', or 'full' when one is already banked).
@@ -72,7 +114,7 @@ export class Wanted {
     this.heat = n === 0 ? 0 : STAR_HEAT[n];
     this.stars = n;
     this.evade = 0;
-    if (n === 0) this.peak = 0;
+    if (n === 0) this._reachedZero(false);
   }
 
   setHeat(h) {
@@ -88,11 +130,13 @@ export class Wanted {
   }
 
   clear() {
-    this.peak = 0;
+    const had = this.stars > 0;
     this.heat = 0;
     this.stars = 0;
-    this.evade = 0;
     this.vouchTimer = 0;
+    if (had) this._reachedZero(false); // roadside repair vouchers land here; respawns after an arrest do too (the air layer checks world.fx and pays nothing)
+    this.peak = 0;
+    this.evade = 0;
   }
 
   // nearestCop: distance to the closest police car (Infinity when none exist).
@@ -102,21 +146,25 @@ export class Wanted {
       this.vouchTimer -= dt;
       if (this.vouchTimer <= 0) this._redeemVouch();
     }
+    this._nearest = nearestCop;
+    if (this.airTarget && (this.airTarget.age += dt) > AIR_PING_TTL) this.airTarget = null; // Air-1 pings every 1.0 s while locked; a stale fix means the lock is gone
     if (this.stars === 0) return;
+    if (this.airFreeze) {
+      this.evade = 0; // visual lock: no decay at all
+      return;
+    }
     if (nearestCop < SEE_RANGE) {
       this.evade = Math.max(0, this.evade - dt * 2);
       return;
     }
-    this.evade += dt;
+    this.evade += dt * this.airDecayBoost;
     if (this.evade >= EVADE_TIME * this.evadeScale) {
       this.evade = 0;
       const n = this.stars - 1;
       this.heat = n === 0 ? 0 : STAR_HEAT[n];
       this.stars = n;
       if (n === 0) {
-        const peak = this.peak;
-        this.peak = 0;
-        if (this.hooks.onEscape) this.hooks.onEscape(peak);
+        this._reachedZero();
       } else {
         this.notify(`Heat is dropping  ${'★'.repeat(n)}`, 'warn');
       }
