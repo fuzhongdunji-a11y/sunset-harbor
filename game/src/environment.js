@@ -4,18 +4,20 @@ import { WORLD, SKY } from './config.js';
 import { MeshBuilder } from './meshBuilder.js';
 import { makeRng } from './rng.js';
 
-export const SUN_DIR = new THREE.Vector3(-0.45, 0.78, -0.42).normalize();
+// Low evening sun in the south-west, over the sea: long shadows run inland (north-east), and the sea carries the glitter path.
+export const SUN_DIR = new THREE.Vector3(-0.5, 0.47, 0.72).normalize();
 
 export class Environment {
   constructor(scene) {
     this.scene = scene;
     this.time = 0;
     scene.background = new THREE.Color(SKY.horizon);
-    scene.fog = new THREE.Fog(SKY.fog, 320, 1700);
+    scene.fog = new THREE.Fog(SKY.fog, 300, 1650);
 
-    this.hemi = new THREE.HemisphereLight(0xd6ebff, 0xf6d9a8, 1.5);
+    // cool sky fill, warm bounce from the sunlit ground: shadows stay soft blue-violet instead of going black
+    this.hemi = new THREE.HemisphereLight(0xc8dcff, 0xffd8ae, 2.8);
     scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xffe2b0, 2.9);
+    this.sun = new THREE.DirectionalLight(0xffbb78, 3.5);
     this.sun.castShadow = true;
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -95;
@@ -24,7 +26,7 @@ export class Environment {
     sc.far = 420;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0004;
-    this.sun.shadow.normalBias = 0.06;
+    this.sun.shadow.normalBias = 0.09;
     scene.add(this.sun, this.sun.target);
 
     this.sky = this._buildSky();
@@ -38,18 +40,26 @@ export class Environment {
   }
 
   _buildSky() {
-    const geo = new THREE.SphereGeometry(2100, 24, 14);
+    const geo = new THREE.SphereGeometry(2100, 40, 20);
     const pos = geo.attributes.position;
     const colors = [];
     const hor = new THREE.Color(SKY.horizon);
+    const band = new THREE.Color(SKY.band);
     const mid = new THREE.Color(SKY.mid);
     const top = new THREE.Color(SKY.zenith);
+    const glow = new THREE.Color(SKY.glow);
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
-      const t = Math.min(1, Math.max(0, pos.getY(i) / 2100));
-      // three-stop gradient: cream horizon -> light sky -> deep blue zenith
-      if (t < 0.28) c.copy(hor).lerp(mid, Math.pow(t / 0.28, 0.7));
-      else c.copy(mid).lerp(top, Math.pow((t - 0.28) / 0.72, 0.8));
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const t = Math.min(1, Math.max(0, y / 2100));
+      // horizon apricot -> rose band -> clear blue -> deep blue zenith
+      if (t < 0.1) c.copy(hor).lerp(band, t / 0.1);
+      else if (t < 0.34) c.copy(band).lerp(mid, Math.pow((t - 0.1) / 0.24, 0.8));
+      else c.copy(mid).lerp(top, Math.pow((t - 0.34) / 0.66, 0.85));
+      // warm glow wrapped around the sun's azimuth, strongest near the horizon
+      const along = (x * SUN_DIR.x + y * SUN_DIR.y + z * SUN_DIR.z) / 2100;
+      const k = Math.max(0, along);
+      c.lerp(glow, Math.min(0.85, Math.pow(k, 5) * 1.1 + Math.pow(k, 2) * 0.22 * (1 - t)));
       colors.push(c.r, c.g, c.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -60,9 +70,9 @@ export class Environment {
 
   _buildSunDisc() {
     const g = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.SphereGeometry(60, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfffbe6, fog: false }));
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(150, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a0, fog: false, transparent: true, opacity: 0.3, depthWrite: false }));
-    const halo = new THREE.Mesh(new THREE.SphereGeometry(330, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffd78a, fog: false, transparent: true, opacity: 0.12, depthWrite: false }));
+    const core = new THREE.Mesh(new THREE.SphereGeometry(70, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfff3d0, fog: false }));
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(190, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffc070, fog: false, transparent: true, opacity: 0.32, depthWrite: false }));
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(420, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff9a5a, fog: false, transparent: true, opacity: 0.14, depthWrite: false }));
     g.add(core, glow, halo);
     return g;
   }
@@ -72,20 +82,26 @@ export class Environment {
     const group = new THREE.Group();
     const ico = new THREE.IcosahedronGeometry(1, 1);
     const b = new MeshBuilder();
-    for (let k = 0; k < 18; k++) {
+    const lit = new THREE.Color(0xfff2e2), shade = new THREE.Color(0xf4c6b8), hot = new THREE.Color(0xffb36a), c = new THREE.Color();
+    for (let k = 0; k < 20; k++) {
       const cx = rng.range(-1500, 1500);
       const cz = rng.range(-1500, 1100);
-      const cy = rng.range(260, 380);
+      const cy = rng.range(240, 360);
       const puffs = rng.int(4, 7);
+      // clouds toward the sun glow orange, the rest are peach on top with rose undersides
+      const dl = Math.hypot(cx, cz) || 1;
+      const sunward = Math.max(0, (cx * SUN_DIR.x + cz * SUN_DIR.z) / dl);
       for (let p = 0; p < puffs; p++) {
         const s = rng.range(40, 90);
+        const px = cx + p * 62 - puffs * 31, py = cy + rng.range(-8, 14);
         const m = new THREE.Matrix4().compose(
-          new THREE.Vector3(cx + p * 55 - puffs * 27, cy + rng.range(-8, 14), cz + rng.range(-25, 25)),
+          new THREE.Vector3(px, py, cz + rng.range(-25, 25)),
           new THREE.Quaternion(),
-          new THREE.Vector3(s * 1.4, s * 0.5, s),
+          new THREE.Vector3(s * 1.7, s * 0.42, s),
         );
         b.setTransform(m);
-        b.addGeometry(ico, p % 2 ? 0xffffff : 0xf3f8fc);
+        c.copy(p % 2 ? lit : shade).lerp(hot, sunward * 0.55);
+        b.addGeometry(ico, c.getHex());
       }
     }
     const mesh = new THREE.Mesh(b.build(), new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
@@ -143,7 +159,7 @@ export class Environment {
     geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nx * nz * 3), 3));
     this.seaGeo = geo;
     this.seaBase = pos.slice();
-    this.sea = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color: 0xffffff, vertexColors: true, specular: 0xfff0c8, shininess: 90, flatShading: true, transparent: true, opacity: 0.95 }));
+    this.sea = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color: 0xffffff, vertexColors: true, specular: 0xffc27a, shininess: 55, flatShading: true, transparent: true, opacity: 0.95 }));
     this.sea.receiveShadow = true;
     this.scene.add(this.sea);
     // foam line along the shore
@@ -169,10 +185,20 @@ export class Environment {
       // turquoise shallows fading to deep blue, lighter wave crests, and glints that twinkle across the water
       const depth = Math.min(1, Math.max(0, (z - shoreZ) / 260));
       const crest = Math.max(0, wave) * 1.4;
-      const spark = near ? Math.max(0, Math.sin(x * 0.83 + t * 2.7) * Math.sin(z * 0.61 - t * 2.1 + x * 0.3)) ** 6 * 1.7 : 0;
-      col.array[i * 3] = 0.1 + (0.02 - 0.1) * depth + crest * 0.5 + spark;
-      col.array[i * 3 + 1] = 0.72 + (0.42 - 0.72) * depth + crest * 0.5 + spark;
-      col.array[i * 3 + 2] = 0.8 + (0.7 - 0.8) * depth + crest * 0.4 + spark;
+      // glints twinkle, and are concentrated in a column under the sun (the glitter path)
+      const path = Math.exp(-(((x + (z - shoreZ) * 0.69) / 220) ** 2)) * 0.9 + 0.35;
+      const spark = near ? Math.max(0, Math.sin(x * 0.83 + t * 2.7) * Math.sin(z * 0.61 - t * 2.1 + x * 0.3)) ** 6 * 1.0 * path : 0;
+      // far water mirrors the apricot sky; near water stays turquoise -> teal
+      const far = Math.min(1, Math.max(0, (z - shoreZ - 120) / 1100));
+      let r = 0.1 + (0.03 - 0.1) * depth + crest * 0.5;
+      let g = 0.7 + (0.4 - 0.7) * depth + crest * 0.5;
+      let bl = 0.78 + (0.66 - 0.78) * depth + crest * 0.4;
+      r += (0.98 - r) * far * 0.8 + spark * 1.0;
+      g += (0.66 - g) * far * 0.8 + spark * 0.85;
+      bl += (0.56 - bl) * far * 0.8 + spark * 0.6;
+      col.array[i * 3] = r;
+      col.array[i * 3 + 1] = g;
+      col.array[i * 3 + 2] = bl;
     }
     p.needsUpdate = true;
     col.needsUpdate = true;

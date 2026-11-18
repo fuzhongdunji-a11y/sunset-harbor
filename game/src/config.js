@@ -15,5 +15,5 @@ WORLD.halfZ = (WORLD.blocksZ * WORLD.period) / 2;
 export const HEIGHTS = { ground: 0, road: 0.04, mark: 0.08, sidewalk: 0.16 };
 
 export const START_CASH = 1250;
-// Sunlit palette: warm cream haze at the horizon, clear blue overhead; fog matches the horizon so distance dissolves into gold.
-export const SKY = { horizon: 0xf7e0bd, mid: 0x8cc8f0, zenith: 0x2f7fd6, fog: 0xf0dcc0 };
+// Golden-hour palette: apricot haze at the horizon, rose-lilac band, clear blue overhead; fog sits between horizon and sun glow so distance dissolves into peach.
+export const SKY = { horizon: 0xffc99a, mid: 0x9cc4ee, zenith: 0x2f6fc8, fog: 0xf3c9a6, band: 0xf2a9a0, glow: 0xff9a52 };

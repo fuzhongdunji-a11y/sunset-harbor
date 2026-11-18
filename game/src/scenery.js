@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { HEIGHTS } from './config.js';
 import { MeshBuilder } from './meshBuilder.js';
 import { makeRng } from './rng.js';
+import { buildSkyline } from './skyline.js';
 
 const _q = new THREE.Quaternion();
 const _p = new THREE.Vector3();
@@ -29,6 +30,7 @@ export function buildScenery(layout) {
   addLighthouse(b, -110, 419, layout.docks[0].top);
   for (const c of layout.containers) addContainerStack(b, c, layout.docks[1].top);
   addCrane(b, layout);
+  addOuterWharf(b, layout.docks[1].top);
   for (const boat of layout.boats) addBoat(b, boat);
   for (const wh of layout.warehouses) addWarehouse(b, wh, layout.docks[1].top);
   addDockLamps(b, layout);
@@ -41,6 +43,7 @@ export function buildScenery(layout) {
   group.add(mesh);
 
   group.add(buildHills(rng));
+  group.add(buildSkyline());
   return group;
 }
 
@@ -150,6 +153,39 @@ function addCrane(b, layout) {
   b.box(178.8, y - 6, 400, 179.2, y, 400.4, 0x3b3f47); // hanging cable
 }
 
+// Scenery-only outer wharf (outside the walkable bounds) carrying two ship-to-shore cranes, a stacked container block and a moored freighter hull.
+function addOuterWharf(b, top) {
+  b.box(268, -1.2, 345, 332, top, 404, { side: 0x8f8b82, top: 0xc5c1b6 });
+  for (const x of [290, 316]) addQuayCrane(b, x, top);
+  for (let x = 274; x < 326; x += 6.6) for (let s = 0; s < 3; s++) {
+    if ((x * 7 + s * 3) % 5 === 0) continue;
+    b.box(x, top + s * 2.6, 358, x + 6.1, top + s * 2.6 + 2.6, 360.5, { side: [0xc0392b, 0x2471a3, 0xd4ac0d, 0x1e8449][Math.floor(x / 6.6) % 4], top: 0x8a8d90 });
+  }
+  b.box(274, -3, 408, 328, 5, 428, { side: 0x3a4a63, top: 0x7a2f2a }); // freighter hull alongside
+  b.box(274, 5, 408, 328, 5.6, 428, 0x9aa0a6);
+  b.box(312, 5.6, 412, 326, 13, 424, 0xf1ece0); // bridge block
+  b.box(312.5, 10, 411.9, 325.5, 11.6, 412.1, 0x2c4a63);
+}
+
+// Ship-to-shore gantry crane: a tall portal with a long boom raised over the water, so the harbour has a readable skyline.
+function addQuayCrane(b, x, top) {
+  const yel = 0xe6a100, grey = 0x3b3f47;
+  const zl = 396.2, zs = 401.2; // land-side and sea-side leg lines
+  const hgt = 34;
+  for (const z of [zl, zs]) for (const dx of [-5.5, 5.5]) b.box(x + dx - 0.5, top, z - 0.5, x + dx + 0.5, top + hgt, z + 0.5, yel);
+  for (const z of [zl, zs]) b.box(x - 6, top + hgt - 1.4, z - 0.6, x + 6, top + hgt, z + 0.6, yel); // portal beams
+  for (const dx of [-5.5, 5.5]) b.box(x + dx - 0.35, top + hgt - 1.4, zl, x + dx + 0.35, top + hgt, zs, yel);
+  for (const dx of [-5.5, 5.5]) b.box(x + dx - 0.2, top + 9, zl, x + dx + 0.2, top + 10, zs, yel); // cross brace
+  b.box(x - 1.2, top + hgt, zl - 1, x + 1.2, top + hgt + 3, zs + 1, grey); // trolley house
+  b.box(x - 1.0, top + hgt + 3, zl - 4, x + 1.0, top + hgt + 3.8, zl + 6, yel);
+  b.box(x - 0.7, top + hgt + 0.2, zs, x + 0.7, top + hgt + 2.2, zs + 22, yel); // boom stretching out over the water
+  b.box(x - 0.15, top + hgt - 5, zs + 16, x + 0.15, top + hgt, zs + 16.3, grey); // hanging line
+  b.tri([x, top + hgt + 13, zl + 4], [x - 0.6, top + hgt + 3, zl - 1], [x + 0.6, top + hgt + 3, zl - 1], grey); // A-frame mast
+  b.box(x - 0.1, top + hgt + 3, zl + 3.6, x + 0.1, top + hgt + 13, zl + 4.0, grey);
+  b.box(x - 0.08, top + hgt + 2.2, zs + 20, x + 0.08, top + hgt + 12.6, zs + 20.16, grey); // forestay lines (thin masts read as lines)
+  b.box(x - 0.4, top + hgt + 12.8, zl + 3.3, x + 0.4, top + hgt + 13.2, zl + 4.3, 0xd9392b); // red beacon
+}
+
 function addBoat(b, boat) {
   b.setTransform(placement(boat.x, -0.15, boat.z, boat.rot));
   const L = boat.len / 2;
@@ -220,7 +256,7 @@ function addDockLamps(b, layout) {
 
 function buildHills(rng) {
   const b = new MeshBuilder();
-  const tones = [0x86b59a, 0x93bfa3, 0x7aa992, 0xa2c8aa];
+  const tones = [0x8aa7a0, 0x9db4ad, 0x7f9c9c, 0xa9b7ae]; // sage fading to blue-grey; fog adds the peach haze
   for (let k = 0; k < 18; k++) {
     const a = Math.PI * (1.05 + (k / 17) * 0.9); // sweep across the northern horizon
     const r = rng.range(1100, 1500);

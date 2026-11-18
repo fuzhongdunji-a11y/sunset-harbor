@@ -35,7 +35,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cdeaf6; fon
 
 /* minimap */
 #minimap-wrap { position: absolute; left: 26px; bottom: 56px; width: 236px; }
-#minimap { width: 236px; height: 236px; border-radius: 50%; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); background: #4faccc; display: block; }
+#minimap { width: 236px; height: 236px; border-radius: 50%; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); background: #1f6f9c; display: block; }
 #district { text-align: center; margin-top: 6px; font-size: 17px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
 
 /* speedometer */

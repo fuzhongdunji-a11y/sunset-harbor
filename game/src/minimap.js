@@ -5,6 +5,10 @@ const S = 2; // pixels per metre in the pre-rendered map
 const X_MAX = 350;
 const Z_MIN = -310;
 const Z_MAX = 440;
+const PAL = {
+  sea: '#1f6f9c', shallow: '#3b9cc4', grass: '#a3c785', sand: '#f4e2b2', park: '#6fb25e', pier: '#a97c4e', quay: '#c4bfb2',
+  block: '#eadfc8', kerb: '#c9bda4', road: '#3a4350', lane: '#f2d675', tall: '#6f7f93', low: '#b8a88f', cargo: '#7d8a97',
+};
 const u = (x) => (X_MAX - x) * S; // map X = -x
 const v = (z) => (Z_MAX - z) * S; // map Y = -z
 
@@ -23,30 +27,34 @@ export class Minimap {
     c.width = X_MAX * 2 * S;
     c.height = (Z_MAX - Z_MIN) * S;
     const g = c.getContext('2d');
-    g.fillStyle = '#4faccc'; // sea
+    g.fillStyle = PAL.sea; // deep blue so land (warm) and water (cool) never blur together
     g.fillRect(0, 0, c.width, c.height);
     const rect = (x0, z0, x1, z1, color) => {
       g.fillStyle = color;
       g.fillRect(u(x1), v(z1), (x1 - x0) * S, (z1 - z0) * S);
     };
-    rect(-X_MAX, Z_MIN, X_MAX, WORLD.sandZ, '#a9cc8e'); // grass
-    rect(-X_MAX, WORLD.sandZ, X_MAX, WORLD.shoreZ, '#f1dfb0'); // sand
-    for (const d of L.docks) rect(d.x0, d.z0, d.x1, d.z1, d.name.includes('Pier') ? '#b08c5e' : '#bdb9ae');
-    // roads
-    g.fillStyle = '#56606d';
-    const W = WORLD.road;
-    for (const x of L.xs) rect(x - W / 2, L.zs[0] - W / 2, x + W / 2, L.zs[L.zs.length - 1] + W / 2, '#56606d');
-    for (const z of L.zs) rect(L.xs[0] - W / 2, z - W / 2, L.xs[L.xs.length - 1] + W / 2, z + W / 2, '#56606d');
-    g.fillStyle = '#e9d58a';
-    for (const x of L.xs) g.fillRect(u(x) - 0.5, v(L.zs[L.zs.length - 1]), 1, (L.zs[L.zs.length - 1] - L.zs[0]) * S);
-    for (const z of L.zs) g.fillRect(u(L.xs[L.xs.length - 1]), v(z) - 0.5, (L.xs[L.xs.length - 1] - L.xs[0]) * S, 1);
-    // blocks and buildings
+    // a lighter shallows band along the shore, then land
+    rect(-X_MAX, WORLD.shoreZ, X_MAX, WORLD.shoreZ + 26, PAL.shallow);
+    rect(-X_MAX, Z_MIN, X_MAX, WORLD.sandZ, PAL.grass);
+    rect(-X_MAX, WORLD.sandZ, X_MAX, WORLD.shoreZ, PAL.sand);
+    for (const d of L.docks) rect(d.x0, d.z0, d.x1, d.z1, d.name.includes('Pier') ? PAL.pier : PAL.quay);
+    // blocks first (warm, light), roads on top (dark with a pale kerb line), so the street grid reads at a glance
     for (const b of L.blocks) {
       const h = b.size / 2;
-      rect(b.cx - h, b.cz - h, b.cx + h, b.cz + h, b.park ? '#78b565' : '#d6d0c3');
+      rect(b.cx - h, b.cz - h, b.cx + h, b.cz + h, b.park ? PAL.park : PAL.block);
     }
-    for (const b of L.buildings) rect(b.x0, b.z0, b.x1, b.z1, b.h > 40 ? '#8794a3' : '#a9a396');
-    for (const c2 of L.containers) rect(c2.x0, c2.z0, c2.x1, c2.z1, '#7d8a97');
+    const W = WORLD.road;
+    const zA = L.zs[0] - W / 2, zB = L.zs[L.zs.length - 1] + W / 2;
+    const xA = L.xs[0] - W / 2, xB = L.xs[L.xs.length - 1] + W / 2;
+    for (const x of L.xs) rect(x - W / 2 - 1, zA - 1, x + W / 2 + 1, zB + 1, PAL.kerb);
+    for (const z of L.zs) rect(xA - 1, z - W / 2 - 1, xB + 1, z + W / 2 + 1, PAL.kerb);
+    for (const x of L.xs) rect(x - W / 2, zA, x + W / 2, zB, PAL.road);
+    for (const z of L.zs) rect(xA, z - W / 2, xB, z + W / 2, PAL.road);
+    g.fillStyle = PAL.lane;
+    for (const x of L.xs) g.fillRect(u(x) - 0.5, v(zB), 1, (zB - zA) * S);
+    for (const z of L.zs) g.fillRect(u(xB), v(z) - 0.5, (xB - xA) * S, 1);
+    for (const b of L.buildings) rect(b.x0, b.z0, b.x1, b.z1, b.h > 40 ? PAL.tall : PAL.low);
+    for (const c2 of L.containers) rect(c2.x0, c2.z0, c2.x1, c2.z1, PAL.cargo);
     return c;
   }
 
@@ -55,13 +63,16 @@ export class Minimap {
     const g = this.ctx;
     const n = this.size;
     const R = n / 2;
-    const zoom = zoomOverride ?? (player.inCar ? 0.7 + Math.max(0, 0.15 - Math.abs(player.vehicle.speedF) * 0.004) : 1.15);
+    // zoom out with speed so the next junction is visible in time; eased so the map never pumps
+    const target = player.inCar ? 0.78 - Math.min(0.26, Math.abs(player.vehicle.speedF) * 0.0075) : 1.0;
+    this.zoom = this.zoom === undefined ? target : this.zoom + (target - this.zoom) * 0.08;
+    const zoom = zoomOverride ?? this.zoom;
     g.clearRect(0, 0, n, n);
     g.save();
     g.beginPath();
     g.arc(R, R, R - 3, 0, Math.PI * 2);
     g.clip();
-    g.fillStyle = '#4faccc';
+    g.fillStyle = PAL.sea;
     g.fillRect(0, 0, n, n);
     g.translate(R, R);
     g.rotate(camYaw);
@@ -81,25 +92,31 @@ export class Minimap {
         const blink = Math.floor(now * 6) % 2 === 0;
         g.fillStyle = blink ? '#ff3b30' : '#3a78ff';
         g.strokeStyle = '#ffffff';
-        g.lineWidth = 1.6;
-        g.fillRect(-5, -8, 10, 16);
-        g.strokeRect(-5, -8, 10, 16);
-      } else {
-        g.fillStyle = parked ? '#bfc5cc' : '#ffffff';
-        g.strokeStyle = 'rgba(20,24,30,0.85)';
+        g.lineWidth = 2;
+        g.fillRect(-6, -9.5, 12, 19);
+        g.strokeRect(-6, -9.5, 12, 19);
+        g.strokeStyle = 'rgba(12,16,24,0.9)'; // dark outer edge keeps the white outline readable on pale blocks
         g.lineWidth = 1;
+        g.strokeRect(-7.2, -10.7, 14.4, 21.4);
+      } else {
+        g.fillStyle = parked ? '#8f9aa8' : '#ffffff';
+        g.strokeStyle = 'rgba(12,16,24,0.9)';
+        g.lineWidth = 1.2;
         g.fillRect(-w / 2, -l / 2, w, l);
         g.strokeRect(-w / 2, -l / 2, w, l);
       }
       g.restore();
     }
     if (extras.peds) {
-      g.fillStyle = 'rgba(255, 220, 120, 0.95)';
+      g.fillStyle = '#ffd23f';
+      g.strokeStyle = 'rgba(12,16,24,0.85)';
+      g.lineWidth = 0.9;
       for (const p of extras.peds) {
         if (!p.active || p.state === 'down' || !p.model.group.visible) continue;
         g.beginPath();
-        g.arc(u(p.x), v(p.z), 1.8, 0, Math.PI * 2);
+        g.arc(u(p.x), v(p.z), 1.9, 0, Math.PI * 2);
         g.fill();
+        g.stroke();
       }
     }
     g.restore();
@@ -120,43 +137,80 @@ export class Minimap {
       }
       g.save();
       g.translate(R + mx, R + my);
+      const pulse = 1 + Math.sin(now * 5) * 0.08;
+      g.scale(pulse, pulse);
       g.fillStyle = '#ffd23f';
-      g.strokeStyle = '#1b1f27';
-      g.lineWidth = 3;
-      g.beginPath();
+      g.lineJoin = 'round';
       if (edge) {
         g.rotate(Math.atan2(my, mx) + Math.PI / 2);
-        g.moveTo(0, -9);
-        g.lineTo(8, 7);
-        g.lineTo(-8, 7);
+        g.beginPath();
+        g.moveTo(0, -12);
+        g.lineTo(10, 8);
+        g.lineTo(-10, 8);
         g.closePath();
+        g.strokeStyle = '#12151c'; // dark halo, then white edge, then the yellow fill
+        g.lineWidth = 7;
+        g.stroke();
+        g.strokeStyle = '#ffffff';
+        g.lineWidth = 3.5;
+        g.stroke();
+        g.fill();
       } else {
-        g.arc(0, 0, 8, 0, Math.PI * 2);
+        g.beginPath();
+        g.arc(0, 0, 10, 0, Math.PI * 2);
+        g.strokeStyle = '#12151c';
+        g.lineWidth = 7;
+        g.stroke();
+        g.strokeStyle = '#ffffff';
+        g.lineWidth = 3.5;
+        g.stroke();
+        g.fill();
+        g.fillStyle = '#12151c'; // centre dot so it reads as a target pin, not another car
+        g.beginPath();
+        g.arc(0, 0, 3.2, 0, Math.PI * 2);
+        g.fill();
       }
-      g.stroke();
-      g.fill();
       g.restore();
     }
 
-    // player arrow (always points up) and rim
+    // player: soft view cone behind the arrow, then a dark-haloed coral arrow (always points up)
     g.save();
     g.translate(R, R);
-    g.fillStyle = '#ff5a3c';
-    g.strokeStyle = '#ffffff';
-    g.lineWidth = 3;
+    const cone = g.createRadialGradient(0, 0, 8, 0, 0, 62);
+    cone.addColorStop(0, 'rgba(255,255,255,0.42)');
+    cone.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = cone;
     g.beginPath();
-    g.moveTo(0, -13);
-    g.lineTo(9, 10);
-    g.lineTo(0, 5);
-    g.lineTo(-9, 10);
+    g.moveTo(0, 0);
+    g.arc(0, 0, 62, -Math.PI / 2 - 0.55, -Math.PI / 2 + 0.55);
     g.closePath();
+    g.fill();
+    g.lineJoin = 'round';
+    g.beginPath();
+    g.moveTo(0, -15);
+    g.lineTo(10.5, 11);
+    g.lineTo(0, 5.5);
+    g.lineTo(-10.5, 11);
+    g.closePath();
+    g.strokeStyle = '#12151c';
+    g.lineWidth = 7;
     g.stroke();
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 3.2;
+    g.stroke();
+    g.fillStyle = '#ff5a3c';
     g.fill();
     g.restore();
+    // rim: dark outer ring + white ring so the disc separates from any scene colour behind it
+    g.strokeStyle = 'rgba(12,16,24,0.7)';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(R, R, R - 1.5, 0, Math.PI * 2);
+    g.stroke();
     g.strokeStyle = 'rgba(255,255,255,0.95)';
     g.lineWidth = 5;
     g.beginPath();
-    g.arc(R, R, R - 3, 0, Math.PI * 2);
+    g.arc(R, R, R - 4.5, 0, Math.PI * 2);
     g.stroke();
     // "N" on the rim: world -z is north, which is map-down before the rotation
     const nr = R - 17;
