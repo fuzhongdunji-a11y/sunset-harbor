@@ -21,6 +21,7 @@ import { ArmoredHeist } from './armoredTruck.js';
 import { Crests } from './crests.js';
 import { AmbientDirector } from './ambient/AmbientDirector.js';
 import { TUNER_DEF } from './ambient/TunerBreakdownEvent.js';
+import { HAULER_DEF } from './ambient/StuntHaulerEvent.js';
 import { makeRng } from './rng.js';
 import { START_CASH } from './config.js';
 
@@ -66,7 +67,8 @@ export class World {
     this.district = '';
     this.prompt = '';
     this.promptProgress = -1; // 0..1 fills the bar under the prompt (hold-to-repair), -1 hides it
-    this.ambientCaption = null; // {text, t} bottom-centre caption when an ambient event first comes into notice range
+    this.timeScale = 1; // simulation speed (the Stunt Hauler's smash drops it to 0.4 for two real seconds)
+    this.ambientCaption = null; // {text, t, color?} bottom-centre caption when an ambient event first comes into notice range
     this._input = NO_INPUT; // the frame's input, for systems that need held keys outside the physics loop
     this.fx = null; // {kind: 'wasted' | 'busted', t}
     this.saveRequested = false;
@@ -84,6 +86,7 @@ export class World {
     this.armored = new ArmoredHeist(this, scene, rng);
     this.ambient = new AmbientDirector(this, scene, makeRng(seed * 7919 + 5));
     this.ambient.register('TUNER', TUNER_DEF);
+    this.ambient.register('HAULER', HAULER_DEF);
     this.armoredPops = []; // floating texts ("HEAVY RAM!", "ON-FOOT GRAB!") for the HUD
     this.armoredResult = null; // {lines, total, t} payout breakdown for the HUD after Armored Shakedown
     this.missions = new MissionTracker(this, scene);
@@ -179,8 +182,10 @@ export class World {
     p.person.group.visible = true;
   }
 
-  update(dt, input, mouse) {
+  update(realDt, input, mouse) {
     const p = this.player;
+    this.realDt = realDt; // the HUD, audio and the ambient layer's own timers run on real time ...
+    const dt = realDt * this.timeScale; // ... the simulation on game time (0.4x during the stunt smash)
     this._input = input;
     if (this.fx) {
       this.fx.t += dt;
@@ -196,6 +201,7 @@ export class World {
     this.traffic.update(dt, ctx, focus);
     this.intercept.drive(dt, ctx);
     this.armored.drive(dt, ctx);
+    this.ambient.drive(dt, ctx);
     const camFwd = { x: Math.sin(this.rig.yaw), z: Math.cos(this.rig.yaw) };
     const arrest = this.fx ? null : this.police.update(dt, ctx, p, this.wanted, camFwd);
     if (arrest === 'busted') this._startFx('busted');
@@ -205,6 +211,7 @@ export class World {
     for (let i = 0; i < steps; i++) {
       if (p.inCar) p.updateDriving(input);
       this.vehicles.update(h);
+      this.ambient.step(h); // ramp surface and launch checks run every sub-step: a car covers metres per frame
       if (!p.inCar) p.updateFoot(h, input, this.rig.yaw, this.collision, this.vehicles, this.layout.groundHeightAt);
     }
     this.afterStep(dt, mouse);
@@ -255,7 +262,7 @@ export class World {
       this.district = d;
       this.notify(d.toUpperCase(), 'district');
     }
-    this.ambient.update(dt, this._input);
+    this.ambient.update(this.realDt ?? dt, this._input);
     this.prompt = '';
     this.promptProgress = -1;
     if (!p.inCar && !this.fx) {
@@ -376,7 +383,13 @@ export class World {
       return undefined;
     }
     const car = this._enterCandidate();
-    if (!car) return undefined;
+    if (!car) {
+      if (this.ambient.active?.lockedNear?.(p.x, p.z)) {
+        this.notify('The cab is locked', 'warn');
+        this.emit('ambLocked');
+      }
+      return undefined;
+    }
     if (car.driver?.ai) {
       this.peds.ejectDriver(car.x + Math.cos(car.h) * 1.6, car.z - Math.sin(car.h) * 1.6, this.focusPoint);
       this.wanted.commit('carjack');

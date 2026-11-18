@@ -331,6 +331,51 @@ export class Minimap {
         mx = (mx / dist) * lim;
         my = (my / dist) * lim;
       }
+      if (extras.ambient.kind === 'hauler') {
+        // Stunt Hauler: 12 px yellow ramp wedge with a magenta diamond and a white arrow pointing the way the truck drives (so you can line up behind it)
+        const ax = extras.ambient.x, az = extras.ambient.z, fx = Math.sin(extras.ambient.h), fz = Math.cos(extras.ambient.h);
+        const hx = u(ax + fx) - u(ax), hy = v(az + fz) - v(az);
+        const ang = Math.atan2(hx * sn + hy * cs, hx * cs - hy * sn);
+        g.save();
+        g.translate(R + mx, R + my);
+        g.rotate(ang);
+        g.scale(1.3, 1.3);
+        g.lineJoin = 'round';
+        const wedge = () => {
+          g.beginPath(); // low tail, tall nose: a ramp seen from above
+          g.moveTo(-6, -5);
+          g.lineTo(6, -2.2);
+          g.lineTo(6, 2.2);
+          g.lineTo(-6, 5);
+          g.closePath();
+        };
+        wedge();
+        g.strokeStyle = '#12151c';
+        g.lineWidth = 4;
+        g.stroke();
+        wedge();
+        g.fillStyle = '#ffcc00';
+        g.fill();
+        g.fillStyle = '#ff00aa';
+        g.beginPath(); // magenta diamond
+        g.moveTo(-3.4, 0);
+        g.lineTo(-0.2, -2.8);
+        g.lineTo(3, 0);
+        g.lineTo(-0.2, 2.8);
+        g.closePath();
+        g.fill();
+        g.strokeStyle = '#ffffff';
+        g.lineWidth = 1.4;
+        g.beginPath(); // white direction arrow
+        g.moveTo(-1.4, 0);
+        g.lineTo(4.6, 0);
+        g.moveTo(2.6, -2);
+        g.lineTo(4.8, 0);
+        g.lineTo(2.6, 2);
+        g.stroke();
+        g.restore();
+        return;
+      }
       g.save();
       g.translate(R + mx, R + my);
       g.globalAlpha = 0.8 + 0.2 * Math.sin(now * Math.PI * 4); // 0.6..1.0 at 2 Hz

@@ -21,6 +21,7 @@ export class RoadDriver {
     this.lane = opts.lane ?? LANE;
     this.cruise = opts.cruise ?? 12;
     this.chase = !!opts.chase;
+    this.straight = !!opts.straight; // always take the straightest continuing road (the Stunt Hauler)
     this.ti = 0;
     this.tj = 0;
     this.d = 0;
@@ -113,6 +114,8 @@ export class RoadDriver {
         if (dd < bd) { bd = dd; best = o; }
       }
       this.next = best;
+    } else if (this.straight && opts.includes(d)) {
+      this.next = d;
     } else {
       const r = this.rng();
       let pick = d;

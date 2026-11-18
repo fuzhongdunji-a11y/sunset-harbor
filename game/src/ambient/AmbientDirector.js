@@ -1,6 +1,6 @@
 // AmbientDirector: schedules the free-roam city events. One event at a time, a 60 s first delay then 240 s between events, only while the player is not on a job
 // and has at most 1 star. Picks a straight stretch of road 110-160 m ahead of the player's heading and hands it to the event (see TunerBreakdownEvent.js).
-// Events register themselves by name, so a second event type only needs `register(name, factory)`.
+// Events register themselves by name (TUNER and HAULER today); the first pick is 50/50, after that the other event comes up 80% of the time (see _pickKind).
 import { DIRS, rightOf } from '../roadNet.js';
 
 export const FIRST_DELAY = 60;
@@ -13,6 +13,7 @@ const MAX_AHEAD = 160;
 const CONE_COS = Math.cos((35 * Math.PI) / 180);
 const ALONG = [20, 28, 36, 44, 52, 60]; // metres from the junction: at least 18 m clear of both ends of an 80 m block
 const SEA_LIMIT = 345 + 30; // not further than 30 m into the water
+const ALIGNED_COS = Math.cos((25 * Math.PI) / 180); // an event flagged `aligned` needs a road within 25 degrees of the player's heading
 
 // A curb spot on the right-hand side of the segment leaving node (i, j) in direction d, `along` metres from the node.
 export function makeSpot(net, i, j, d, along, curb) {
@@ -73,6 +74,7 @@ export class AmbientDirector {
       for (let j = 0; j < net.nj; j++) {
         for (let d = 0; d < 4; d++) {
           if (!net.step(i, j, d)) continue;
+          if (def.aligned && DIRS[d].x * H.x + DIRS[d].z * H.z < ALIGNED_COS) continue; // the Stunt Hauler drives away along the player's own heading
           for (const along of ALONG) {
             const s = makeSpot(net, i, j, d, along, def.curb);
             const dx = s.x - px, dz = s.z - pz;
@@ -125,6 +127,16 @@ export class AmbientDirector {
     this.checkT = 0;
   }
 
+  // AI hook (game time, before the physics sub-steps) and per-sub-step hook for the active event, if it has them.
+  drive(dt, ctx) {
+    this.active?.drive?.(dt, ctx);
+  }
+
+  step(h) {
+    this.active?.step?.(h);
+  }
+
+  // dt is real time: the cooldown and the events' own clocks do not slow down with the stunt slow-motion (events read world.timeScale when they need game time).
   update(dt, input) {
     const w = this.world;
     const busy = this.missionBusy;

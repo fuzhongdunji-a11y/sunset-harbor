@@ -1,6 +1,7 @@
 // vehicleModels: the original Costa Serena car lineup (stats + low-poly mesh builders). Local +Z is the car's front.
 import * as THREE from '../vendor/three.module.min.js';
 import { MeshBuilder } from './meshBuilder.js';
+import { buildHaulerModel } from './ambient/HaulerModel.js';
 
 export const CAR_TYPES = {
   marlin: { name: 'Marlin', body: 'sedan', len: 4.5, wid: 1.85, wheelbase: 2.7, maxSpeed: 41, accel: 17, brake: 32, maxReverse: 11, weight: 1 },
@@ -18,6 +19,8 @@ export const CAR_TYPES = {
   solari: { name: 'Serena Solari GT', body: 'coupe', len: 4.5, wid: 1.95, wheelbase: 2.65, maxSpeed: 60, accel: 29, brake: 42, maxReverse: 12, weight: 0.95 },
   // Roadside Tuner Breakdown: the neon-violet street tuner (coupe chassis, +15% pull off the line via accelMult)
   tuner: { name: 'Kestrel Street Tuner', body: 'coupe', len: 4.4, wid: 1.9, wheelbase: 2.6, maxSpeed: 42, accel: 24, accelMult: 1.15, brake: 38, maxReverse: 12, weight: 0.9 },
+  // Sky-Ad Stunt Hauler: the ramp truck. Only its cab is solid (circles at these z offsets), so cars can drive up the ramp behind it. Never enterable.
+  hauler: { name: 'Promo Hauler', body: 'hauler', len: 9.5, wid: 3.7, wheelbase: 6.2, maxSpeed: 14, accel: 8, brake: 20, maxReverse: 4, weight: 5, circles: [3.55, 2.75], circleR: 1.45 },
 };
 
 export const TUNER_VIOLET = 0x8b1eff;
@@ -103,6 +106,7 @@ function cabin(b, bot, top, y0, y1, paint, { pillars = [0.5], glints = true } = 
 // Returns {group, chassis, wheels:[{steer, spin, front}]}.
 export function buildCarModel(typeKey, paint) {
   const t = CAR_TYPES[typeKey];
+  if (t.body === 'hauler') return buildHaulerModel(t, { wheelGeo: getWheelGeometry(), wheelMat: wheelMaterial, bodyMat: bodyMaterial, wheelR: WHEEL_R });
   const w = t.wid / 2;
   const L = t.len;
   const hl = L / 2;

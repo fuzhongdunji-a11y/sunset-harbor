@@ -29,6 +29,11 @@ export class Vehicle {
     this.bumped = null; // last car that hit us since the owner cleared it (survives the physics sub-steps, unlike `contact`)
     this.hitSpeed = 0; // hardest closing speed (m/s) of a car-to-car hit since the owner last cleared it
     this.hitBy = null; // the car that delivered it
+    this.airborne = false; // in flight after a ramp launch (see ambient/StuntHaulerEvent.js)
+    this.vy = 0;
+    this.onRampOf = null; // the hauler truck whose ramp this car is driving up
+    this.airTime = 0; // seconds in the current flight
+    this.landedSpeed = 0; // vertical speed at the last touchdown
     this.shield = 0; // seconds of reduced crash damage left (the player's car while ramming an armored truck)
     this.health = 100;
     this.accelMultiplier = this.type.accelMult ?? 1; // tuned cars pull harder (the Roadside Tuner is 1.15)
@@ -103,6 +108,7 @@ export class Vehicle {
   }
 
   update(dt, collision, groundHeightAt) {
+    if (this.airborne) return this._fly(dt, collision, groundHeightAt);
     // parked cars at rest skip the whole step
     if (!this.driver && this.vx === 0 && this.vz === 0 && Math.abs(this.speedF) < 1e-3 && !this.wake) return;
     this.wake = false;
@@ -185,11 +191,36 @@ export class Vehicle {
     const hl = this.type.len / 2;
     const off = hl - this.type.wid * 0.55;
     const sh = Math.sin(this.h), ch = Math.cos(this.h);
-    return [off, 0, -off].map((o) => ({ x: this.x + sh * o, z: this.z + ch * o }));
+    return (this.type.circles ?? [off, 0, -off]).map((o) => ({ x: this.x + sh * o, z: this.z + ch * o }));
   }
 
   get radius() {
-    return this.type.wid * 0.52;
+    return this.type.circleR ?? this.type.wid * 0.52;
+  }
+
+  // Ballistic flight (ramp jumps): no grip or steering, gravity on y, back to normal driving when the wheels meet the ground.
+  _fly(dt, collision, groundHeightAt) {
+    this.vy -= 9.81 * dt;
+    this.y += this.vy * dt;
+    this.x += this.vx * dt;
+    this.z += this.vz * dt;
+    this.impact = 0;
+    this._collideStatic(collision);
+    const hv = Math.hypot(this.vx, this.vz);
+    this.airTime += dt;
+    // nose follows the trajectory (a little less steep, so it reads as a stable jump), no roll
+    this.pitch += (-Math.atan2(this.vy, Math.max(hv, 1)) * 0.8 - this.pitch) * Math.min(1, 4 * dt);
+    this.roll += (0 - this.roll) * Math.min(1, 3 * dt);
+    const spin = (this.speedF * dt) / this.wheelRadius;
+    for (const wl of this.wheels) wl.spin.rotation.x += spin;
+    const g = groundHeightAt(this.x, this.z);
+    if (this.y <= g && this.vy < 0) {
+      this.y = g;
+      this.landedSpeed = -this.vy;
+      this.vy = 0;
+      this.airborne = false;
+    }
+    this._syncMesh();
   }
 
   _collideStatic(collision) {
@@ -267,6 +298,13 @@ export class VehicleManager {
     return v;
   }
 
+  // The Sky-Ad Stunt Hauler: a locked ramp truck. Its AI controller is attached by the event.
+  spawnHauler(x, z, heading) {
+    const v = this.spawn('hauler', 0xffcc00, x, z, heading, 'target');
+    v.locked = true;
+    return v;
+  }
+
   remove(v) {
     const k = this.list.indexOf(v);
     if (k >= 0) this.list.splice(k, 1);
@@ -282,6 +320,7 @@ export class VehicleManager {
   }
 
   _collidePair(a, b) {
+    if (a.airborne || b.airborne || a.onRampOf === b || b.onRampOf === a) return; // a car in flight sails over everything; one on the ramp ignores the truck's cab
     if (Math.abs(a.x - b.x) > 6 || Math.abs(a.z - b.z) > 6) return;
     const ca = a._circles(), cb = b._circles();
     let best = null;

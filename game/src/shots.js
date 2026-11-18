@@ -1,12 +1,16 @@
-// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people|intercept|armored|crest scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
+// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people|intercept|armored|crest|tuner|hauler scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
 import { makeSpot } from './ambient/AmbientDirector.js';
 import { TUNER_CURB, tunerFits, tunerGeometry } from './ambient/TunerBreakdownEvent.js';
+import { haulerFits } from './ambient/StuntHaulerEvent.js';
+import { RAMP_LIP_Z } from './ambient/HaulerModel.js';
+import { LANE } from './roadNet.js';
 
 const KEYS = (...codes) => ({
   down: (...c) => c.some((k) => codes.includes(k)),
   pressed: () => false,
 });
 const NO_MOUSE = { dx: 0, dy: 0 };
+const FRAME = { f: -7.5, s: 10, up: 6.6, lf: 8, ls: -4.5, lup: 5.9, fov: 46 }; // ?shot=hauler camera: metres from the ramp lip along the truck / toward the street centre / above the road; l* = look target
 
 function run(world, frames, input, hud) {
   for (let i = 0; i < frames; i++) {
@@ -210,6 +214,51 @@ export function prepareShot(name, { world, hud, ui }) {
     cam.fov = 48;
     cam.updateProjectionMatrix();
     cam.lookAt(car.x - g.fx * 0.4 + g.rx * 1.5, car.y + 1.3, car.z - g.fz * 0.4 + g.rz * 1.5); // aimed a little toward the sidewalk so the scene clears the minimap
+    return;
+  }
+
+  // Sky-Ad Stunt Hauler on the coast road: frozen 0.18 s after the crimson coupe punches through the COSTA COLA cube, shards flying, the yellow ramp truck's green chevrons below.
+  if (name === 'hauler') {
+    const net = world.net, p = world.player, D = world.ambient;
+    const j = net.zs.length - 1; // the coast road
+    let spot = null;
+    for (const i of [3, 4, 2, 5]) {
+      const s = makeSpot(net, i, j, 0, 28, LANE); // eastbound lane, the truck driving away from the camera's left
+      if (haulerFits(world, s)) { spot = s; break; }
+    }
+    if (!spot) throw new Error('hauler shot: no free lane on the coast road');
+    for (const v of [...world.vehicles.list]) if (v.kind === 'parked' && !v.driver && Math.abs(v.z - spot.z) < 14 && Math.abs(v.x - spot.x) < 60) world.vehicles.remove(v);
+    world.cash = 3850;
+    const car = world.vehicles.spawn('vesper', 0xd7263d, spot.x, spot.z, spot.h);
+    car.stolen = true;
+    car.health = 38; // battered before the jump: the banner says it is repaired
+    world.placeInCar(car);
+    world.rig.yaw = spot.h;
+    world.district = L.districtAt(spot.x, spot.z);
+    const ev = D.forceSpawn('HAULER', spot);
+    ev.t = 0.4; // cube mid-bob
+    ev.chevTex.offset.y = 0.37; // arrows caught mid-scroll
+    ev.showcaseSmash(car, 0.18);
+    const ped = world.peds.list;
+    world.peds.placeBetween(ped[0], { i: spot.i, j, sx: 1, sz: 1 }, { i: spot.i + 1, j, sx: -1, sz: 1 }, 0.55);
+    world.peds.placeBetween(ped[1], { i: spot.i + 1, j, sx: -1, sz: 1 }, { i: spot.i, j, sx: 1, sz: 1 }, 0.4);
+    world.messages.length = 0;
+    hud.toastQueue.length = 0;
+    hud.toastTimer = 0;
+    world.notify(`STUNT SMASH!  +$850\nVEHICLE REPAIRED 100%`, 'stunt');
+    for (let k = 0; k < 4; k++) hud.update(1 / 60, world);
+    hud.el.toast.style.animationDelay = '-1s'; // the banner at rest, not mid-pop
+    // the design's framing (L = the ramp's top lip, F = the truck's forward, S = toward the street centre, FOV 52) never shows the ramp: at F +7.5 / S 10.5 /
+    // 5.8 m up the truck is behind and below the lens. This keeps the same FOV, side and sky-high look but stands behind the ramp's foot so the chevron deck,
+    // the airborne car and the shards share the picture, with the sea on the right
+    const tr = ev.truck, fx = Math.sin(tr.h), fz = Math.cos(tr.h), sx = Math.cos(tr.h), sz = -Math.sin(tr.h);
+    const lx = tr.x + fx * RAMP_LIP_Z, lz = tr.z + fz * RAMP_LIP_Z;
+    const cam = world.camera;
+    cam.position.set(lx + fx * FRAME.f + sx * FRAME.s, tr.y + FRAME.up, lz + fz * FRAME.f + sz * FRAME.s);
+    cam.fov = FRAME.fov;
+    cam.updateProjectionMatrix();
+    cam.lookAt(lx + fx * FRAME.lf + sx * FRAME.ls, tr.y + FRAME.lup, lz + fz * FRAME.lf + sz * FRAME.ls);
+    world.env.update(1 / 60, cam, world.focusPoint); // sky and sea follow the camera
     return;
   }
 

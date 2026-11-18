@@ -69,6 +69,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #cdeaf6; fon
 #toast.toast-warn { color: #ff8a70; font-size: 28px; }
 #toast.toast-info { font-size: 30px; }
 #toast.toast-escape { color: #8cf5b0; font-size: 56px; text-shadow: 0 4px 0 rgba(10, 70, 40, 0.9), 0 0 24px rgba(120, 255, 180, 0.55); }
+#toast.toast-stunt { color: #ffd23f; font-size: 46px; line-height: 1.08; text-align: center; white-space: pre; text-shadow: 0 4px 0 rgba(150, 0, 100, 0.95), 0 0 26px rgba(255, 0, 170, 0.7); }
+#toast.toast-air { color: #ff8fe6; font-size: 34px; text-shadow: 0 3px 0 rgba(90, 0, 70, 0.9), 0 0 18px rgba(255, 0, 170, 0.5); }
 #toast.show { animation: toastPop 0.32s cubic-bezier(0.2, 1.4, 0.4, 1); }
 @keyframes toastPop { from { transform: translateX(-50%) scale(0.7); } to { transform: translateX(-50%) scale(1); } }
 

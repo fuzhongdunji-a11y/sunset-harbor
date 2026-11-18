@@ -215,6 +215,8 @@ export class Hud {
     if (cap) {
       world.ambientCaption = null;
       e.ambientCap.textContent = cap.text;
+      e.ambientCap.style.color = cap.color ?? ''; // the Stunt Hauler's caption is magenta, the tuner's keeps the stylesheet cyan
+      e.ambientCap.style.borderLeftColor = cap.color ?? '';
       e.ambientCap.classList.remove('hidden');
       void e.ambientCap.offsetWidth;
       e.ambientCap.classList.add('show');
@@ -328,7 +330,7 @@ export class Hud {
       if (next) {
         e.toast.textContent = next.text;
         e.toast.className = `toast-${next.kind} show`;
-        this.toastTimer = next.kind === 'mission' ? 3.2 : 2.2;
+        this.toastTimer = next.kind === 'mission' || next.kind === 'stunt' ? 3.2 : 2.2;
       } else {
         e.toast.classList.remove('show');
       }
