@@ -76,6 +76,28 @@ export class Traffic {
     }
   }
 
+  // Move every civilian car within r metres of (x, z) out to a lane spot 110-210 m from the focus (an ambient event needs the street clear).
+  clearArea(x, z, r, focus) {
+    for (const c of this.cars) {
+      if (Math.hypot(c.v.x - x, c.v.z - z) > r) continue;
+      const s = this.findSpot(focus, 110, 210);
+      if (!s) continue;
+      c.drv.place(s.i, s.j, s.d, (s.x - this.net.xs[s.i]) * DIRS[s.d].x + (s.z - this.net.zs[s.j]) * DIRS[s.d].z);
+      c.v.steer = 0;
+    }
+  }
+
+  // Hand a car over to the civilian fleet: it joins the nearest lane and drives off like everyone else.
+  adopt(vehicle, i, j, d) {
+    const to = this.net.step(i, j, d);
+    if (!to) return false;
+    const drv = new RoadDriver(vehicle, this.net, this.rng, { cruise: 11 });
+    drv.setSegment(to[0], to[1], d);
+    vehicle.kind = 'traffic';
+    this.cars.push({ v: vehicle, drv });
+    return true;
+  }
+
   // Take a car out of traffic (the player hijacked it). Returns true when it was an AI civilian.
   release(vehicle) {
     const k = this.cars.findIndex((c) => c.v === vehicle);

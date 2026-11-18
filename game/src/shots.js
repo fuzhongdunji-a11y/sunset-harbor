@@ -1,4 +1,7 @@
 // shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people|intercept|armored|crest scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
+import { makeSpot } from './ambient/AmbientDirector.js';
+import { TUNER_CURB, tunerFits, tunerGeometry } from './ambient/TunerBreakdownEvent.js';
+
 const KEYS = (...codes) => ({
   down: (...c) => c.some((k) => codes.includes(k)),
   pressed: () => false,
@@ -165,6 +168,48 @@ export function prepareShot(name, { world, hud, ui }) {
     run(world, 30, KEYS(), hud);
     world.rig.snap(p, world.collision);
     run(world, 2, KEYS(), hud);
+    return;
+  }
+
+  // Roadside Tuner Breakdown on the coast road at golden hour: the open hood and steam plume, the cyan ring, the waving driver, the player on the sidewalk walking up to help.
+  if (name === 'tuner') {
+    const net = world.net, p = world.player, D = world.ambient;
+    const j = net.zs.length - 1; // the coast road, one block inland from the beach
+    let spot = null;
+    for (const i of [3, 4, 2, 5]) {
+      const s = makeSpot(net, i, j, 0, 44, TUNER_CURB); // eastbound, kerb on the south (beach) side, nose toward the camera
+      if (tunerFits(world, s)) { spot = s; break; }
+    }
+    if (!spot) throw new Error('tuner shot: no free curb spot on the coast road');
+    const g = tunerGeometry(spot);
+    p.x = g.ring.x + g.fx * 2.6 + g.rx * 0.4; // 2.6 m from the ring, on the sidewalk ahead of the tuner's nose
+    p.z = g.ring.z + g.fz * 2.6 + g.rz * 0.4;
+    p.heading = Math.atan2(g.ring.x - p.x, g.ring.z - p.z);
+    world.rig.yaw = p.heading;
+    world.cash = 3850;
+    world.district = L.districtAt(p.x, p.z);
+    const ev = D.forceSpawn('TUNER', spot);
+    ev.announced = true; // the caption is raised by hand at the end so it is still on screen in the picture
+    run(world, 252, KEYS(), hud); // 4.2 s into the animation: the steam column is fully formed
+    const T = world.traffic, ped = world.peds.list;
+    for (const [k, i, along] of [[0, spot.i, 16], [1, spot.i - 1, 66]]) {
+      const lp = net.lanePoint(i, j, 0, along, 4.5); // eastbound lane, 28 m and 58 m west of the tuner, driving toward us
+      T.spawnAt(i, j, 0, lp.x, lp.z, k ? 'pico' : 'marlin');
+    }
+    world.peds.placeBetween(ped[0], { i: spot.i - 1, j, sx: 1, sz: -1 }, { i: spot.i, j, sx: -1, sz: -1 }, 0.55);
+    world.peds.placeBetween(ped[1], { i: spot.i, j, sx: -1, sz: -1 }, { i: spot.i - 1, j, sx: 1, sz: -1 }, 0.62);
+    run(world, 20, KEYS(), hud);
+    world.messages.length = 0;
+    hud.toastQueue.length = 0;
+    hud.toastTimer = 0;
+    world.ambientCaption = { text: '[AMBIENT] Stranded Street Tuner', t: 60 };
+    run(world, 2, KEYS(), hud);
+    // the exact framing from the design: low three-quarter view from the road, looking back at the open bay and the ring
+    const cam = world.camera, car = ev.car, up = 1;
+    cam.position.set(car.x + g.fx * 7.8 - g.rx * 4.6, car.y + 2.35 * up, car.z + g.fz * 7.8 - g.rz * 4.6);
+    cam.fov = 48;
+    cam.updateProjectionMatrix();
+    cam.lookAt(car.x - g.fx * 0.4 + g.rx * 1.5, car.y + 1.3, car.z - g.fz * 0.4 + g.rz * 1.5); // aimed a little toward the sidewalk so the scene clears the minimap
     return;
   }
 

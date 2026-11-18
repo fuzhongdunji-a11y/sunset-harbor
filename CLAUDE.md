@@ -42,6 +42,8 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - Stage 2 で追加済み: `roadNet.js`（道路グラフと車線幾何）、`roadDriver.js`（車線追従AI。交通・警察共用）、`traffic.js`（民間車の循環と再配置）、`pedestrians.js`（歩道コーナーのグラフ歩行・回避・轢かれ）、`wanted.js`（heat→★、逃走タイマー）、`police.js`（パトカーの出動・追跡・逮捕）、`save.js`（localStorage、検証付き）。Stage 3: `audio.js`（WebAudio 合成）、`bench.js`（`?bench=1` 自動運転ベンチ）。
 - `characters.js` に歩行者用 `buildPedestrian`（1人5メッシュ、ジオメトリ共有）。`vehicleModels.js` に `patrol`（ライトバー付き）。`vehicles.js` は `kind`（parked/traffic/police）・`health`・`contact`・休止最適化を持つ。
 
+- `ambient/`（街イベント）: `AmbientDirector.js`（スケジューラ）、`TunerBreakdownEvent.js`（Roadside Tuner）、`AmbientAudio.js`（合成音）。次スロットで `StuntHaulerEvent.js` を `register` する。
+
 ## ステージ計画と完了条件
 **Stage 1 — 土台**（完了条件）: 道路グリッドと建物・ヤシ・街灯・海岸と海の手続き生成（シード固定）、アーケード運転+追従カメラ、徒歩⇄乗降、HUD（速度・所持金・★・ミッション枠）、Canvas ミニマップ、タイトル/ポーズ、`?shot=start|drive|walk` と `window.__ready`、3枚のスクショを目視確認、`node main.ts` で dossier 生成、コミット&プッシュ。
 **Stage 2 — システム**: 交通AI（車線追従・信号）、歩行者、車の乗り降りと窃盗、手配度★1〜5と警察の出動・追跡・逮捕/逃走、ミッション3本以上と目標マーカー、localStorage セーブ/ロード（壊れたデータでも落ちない）。追跡中の shot で「★+ミニマップ+ミッション+交通+パトカー」が1フレームに写る。
@@ -128,8 +130,20 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - ショット: `?shot=armored`（黒煙の装甲車・光の柱つきケース・徒歩プレイヤー・★3・ON-FOOT GRAB ポップ）。`shots.json` は start / armored / chase / intercept の4枚に変更（crest は撤去、`?shot=crest` 自体は残存）。4枚とも目視確認済み、shoot.mjs errors なし。
 - 性能（perf.mjs 25秒 640x360）: draw call 平均 111（前回121）、最大 234、三角形 約151k。`main.ts` 成功・2回出力一致。game/ 43 ファイル 約1.2MB。
 
+**improve-batch2 記録 2（Roadside Tuner Breakdown: 街イベント1）**:
+- 設計: Gemini 4 Carbon 作成 `/home/hatch/workspace/makefun-gta6/gemini-brief3.md` §1/§2/§4/§5/§6/§7（概要は `gemini-brief2.md` §3 Event 1）。**実装したのは AmbientDirector と Tuner のみ。Event 2（Sky-Ad Stunt Hauler）は次スロット**。ブリーフのファイル名（`systems/WantedSystem.js` 等）は実リポジトリの平置き構成（`wanted.js`/`save.js`/`hud.js`…）に読み替えた。
+- 新ファイル（`src/ambient/`）: `AmbientDirector.js`（タイマー・ゲート・前方 110〜160m の道路スポット探索・1 件排他・`register(name, {curb, fits, create})` でハウラーを後から追加可・`forceSpawn`・`makeSpot`）、`TunerBreakdownEvent.js`（状態機械・メッシュ・リペア・盗難・退場）、`AmbientAudio.js`（`GameAudio` 上の合成: ホーン・リレークリック・ラジエータ音・修理アルペジオ）。`world.ambient` として world.js が保持、`afterStep` で更新。
+- Director: 初回 60s、以後イベント終了/失敗/退場から 240s（`COOLDOWN`）。ジョブ中（`stepIndex>0` か `timeLeft!==null` か Intercept/Armored 稼働）は減らない。ジョブ終了後 5s 保留。ゲート（1s ごと）: ★≤1、海 30m 以内、前方コーン 35° の 80m グリッド直線道路（交差点中心から 18m 以上、取れなければ 2s ごとに再試行）。コライダと重ならない場所のみ。ジョブが始まるとイベントは即撤去（プレイヤーが盗んだ車は残る）。種類選択は登録種が 2 つ以上になった時の 80/20 交互ロジックのみ（今は 1 種）。
+- Tuner: 縁石（道路中心から 7.9m）に18°歩道側へ鼻を向けた **Kestrel Street Tuner**（`vehicleModels.js` の新車種 `tuner`: クーペ車体、バイオレット 0x8b1eff、シアンのアンダーグロー、リアウィング。`accelMult 1.15`・最高速 42m/s）。ボンネットは 45° 開き（ヒンジ付き別メッシュ）、エンジン+橙のマニホールド、琥珀ハザード 2Hz（140m 以内）、白い蒸気キューブ InstancedMesh 10 個、シアンのリング（直径 2.0m・3rad/s で脈動）、手を振る NPC（`characters.js` の `buildNpc`、右腕の肩ロール 110〜155°）。生成時に 7m 以内の路駐車を撤去、12m 以内の民間車を遠方へ移動（`Traffic.clearArea`）。
+- 遊び方: 140m 以内で下部キャプション `[AMBIENT] Stranded Street Tuner`（3s）+ ミニマップに脈動する水色レンチ（半径外ではリムに貼り付き）、70m 以内でホーン（9s ごと）、50m 以内でハザードのリレー音とラジエータ音。**A 修理**: 徒歩でリング内（≤1.0m・速度<1m/s）で **E 長押し 3s**（離すと -1/s で戻る、進捗バーは `#prompt-bar`）→ +$600 とポリス・バウチャー（★1 以上なら即クリア、0 なら 1 枠を貯める）。ボンネットが閉まり蒸気とリングが消え、NPC が跳ねて乗り込み、車は民間交通に合流（`Traffic.adopt`）、8s で終了。**B 盗む**: F で乗る（ハイジャック遅延なし）→ ★+1、オーナーが拳を振って通報し逃げる。時速 15m/s 以上で体当たりしても同じ（★+1、リング消失）。車は残り +15% 加速。**無視**: 220m 離れる/90s（修理中は停止）で消える、ペナルティなし。★2 以上: リングが消えて NPC は逃げる（修理不可）が盗むことは可能（★+1、最大 5）。
+- バウチャー: `wanted.js` に `vouch`（0|1）・`grantVouch()`・`_redeemVouch()`。0→★1 の遷移から 0.6s 後に1つ消費（0→★2+ なら1つ減）。`onVouch` で `POLICE VOUCH REDEEMED` トースト。HUD は★の下に水色の `★ VOUCH x1` バッジ、`save.js` が `vouch` を保存（旧セーブは 0）。盗難＋バウチャーなら ★1 が点滅して 0 に戻る。
+- ショット: `?shot=tuner`（コースト道路、東向きのタナーを手前から。4.2s 時点の蒸気・ハザード点灯・手を振る NPC・リング・徒歩プレイヤー（リングから 2.6m）・奥に民間車 2 台と歩行者 2 人・キャプション・ミニマップのレンチ）。カメラは設計の低い 3/4 位置（T+F*7.8−R*4.6+2.35、FOV48）だが、**車の前方側から撮る**（設計通りだとボンネットの裏側しか写らないため）、注視点を歩道側に 1.2m ずらして HUD と被らないようにした。`shots.json` は start / armored / chase / tuner（intercept は撤去、`?shot=intercept` 自体は残存）。4枚とも目視確認済み、shoot.mjs errors/外部リクエストなし。
+- 検証（ブラウザ内、`/tmp/tn/check.mjs`、使い捨て）25/25 PASS: 60s 前に出現せず・60s 後に 115m・コーン内 8°、キャプション/アイコンは 140m 以内のみ（150m では無し）、ホーン 70m・クリック+ラジエータ 50m、1.5s で 50%→離して 0、3s で +$600+バウチャー、★1→0 の遷移 0.6s 後に消費、保存に `vouch:1`・リロード（CONTINUE）で復元、★1 での修理は即 0（バウチャーなし）、★2 でリング消失/NPC 逃走/盗みは ★+1・加速 1.15、盗み 0★→★1・バウチャーで点滅後 0、盗んだ車は残りイベントは終わりクールダウン 240、215m では残り 225m で消える・$0・車撤去、90s で消える、★2 とジョブ中は出現しない、ジョブ開始で撤去、ジョブ終了 5s 後に再開。**未検証: 実機の操作感・聴感（ヘッドレス）。音は呼び出し回数のみ確認**。
+- 性能: 同一カメラのショット画面で、イベント無し 112 → 有り 133 draw call（+21: イベントの小道具は +6 = ボンネット・エンジン・ハザード・蒸気・リング+影パス。残りは追加の車 1 台と NPC 1 人）。三角形 +約 2.2k。perf.mjs 25秒 640x360（イベントは 60s までは出ない）: draw call 平均 120〜121、最大 243〜249、三角形 約 155〜158k。**同じ HEAD（変更なし）も 112〜120 とブレる**（swiftshader）ので悪化なし。`main.ts` 成功、game/ 46 ファイル 約 1.2MB。
+- 注意: `?shot=tuner` の車の向きは東向き固定（`makeSpot(net, i, coastJ, 0, 44)`）。ヒント: 撮影時 `ev.announced = true` を立ててからキャプションを手で出している（そうしないと 3s で消える）。
+
 ## 操作
-WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。
+WASD 移動/運転、Shift 走る、**E 長押し（ストランデッドタナーの修理）**、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。
 
 ## 撮影手順
 - 開発サーバー: `node serve.ts`（http://localhost:8080、`--port N` 可）。

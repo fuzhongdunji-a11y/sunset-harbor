@@ -18,6 +18,31 @@ export class Wanted {
     this.cooldowns = {};
     this.heatScale = 1; // <1 during Signal Intercept: scrapes with traffic add less heat
     this.evadeScale = 1; // 0.8 once Sun-Crest milestone 30 is reached: stars wear off 20% sooner
+    this.vouch = 0; // banked Police Vouch (0 or 1, saved): forgives the next star the moment it is earned
+    this.vouchTimer = 0; // seconds until a pending redemption fires (a short beat so the star flash registers)
+  }
+
+  // Roadside repair reward. At 1+ stars it clears the level now ('cleared'); otherwise it banks one vouch ('banked', or 'full' when one is already banked).
+  grantVouch() {
+    if (this.stars >= 1) {
+      this.clear();
+      return 'cleared';
+    }
+    if (this.vouch >= 1) return 'full';
+    this.vouch = 1;
+    return 'banked';
+  }
+
+  // Spend the banked vouch: one star is forgiven (a jump from 0 to 2+ stars keeps all but one).
+  _redeemVouch() {
+    if (this.vouch < 1 || this.stars < 1) return;
+    this.vouch = 0;
+    const n = this.stars - 1;
+    this.heat = n === 0 ? 0 : STAR_HEAT[n];
+    this.stars = n;
+    this.evade = 0;
+    if (n === 0) this.peak = 0;
+    if (this.hooks.onVouch) this.hooks.onVouch(n);
   }
 
   static starsFor(heat) {
@@ -45,6 +70,7 @@ export class Wanted {
     this.heat = h;
     this.stars = Wanted.starsFor(h);
     this.peak = Math.max(this.peak, this.stars);
+    if (before === 0 && this.stars > 0 && this.vouch > 0 && this.vouchTimer <= 0) this.vouchTimer = 0.6;
     if (this.stars > before) {
       this.notify(`WANTED  ${'★'.repeat(this.stars)}`, 'warn');
       if (this.hooks.onRaise) this.hooks.onRaise(this.stars);
@@ -56,11 +82,16 @@ export class Wanted {
     this.heat = 0;
     this.stars = 0;
     this.evade = 0;
+    this.vouchTimer = 0;
   }
 
   // nearestCop: distance to the closest police car (Infinity when none exist).
   update(dt, nearestCop) {
     for (const k of Object.keys(this.cooldowns)) this.cooldowns[k] = Math.max(0, this.cooldowns[k] - dt);
+    if (this.vouchTimer > 0) {
+      this.vouchTimer -= dt;
+      if (this.vouchTimer <= 0) this._redeemVouch();
+    }
     if (this.stars === 0) return;
     if (nearestCop < SEE_RANGE) {
       this.evade = Math.max(0, this.evade - dt * 2);

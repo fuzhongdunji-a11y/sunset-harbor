@@ -1,5 +1,7 @@
 // audio: WebAudio synthesis only (no sample files). Engine, police siren, collisions, jingles, door and ambience (waves, birds), plus mute.
 // The AudioContext is created by start(), which the title screen calls from the player's click / key press (browser autoplay rules).
+import { AmbientAudio } from './ambient/AmbientAudio.js';
+
 const MUTE_KEY = 'sunsetHarbor.mute';
 
 export class GameAudio {
@@ -17,6 +19,7 @@ export class GameAudio {
     this.sirenPhase = 0;
     this.blipT = 0; // Signal Intercept upload blips
     this.buzzT = 0; // suspicion buzzer / signal-loss beeps
+    this.ambient = new AmbientAudio(this); // ambient city events (Roadside Tuner)
   }
 
   get ready() {
@@ -230,6 +233,7 @@ export class GameAudio {
 
     this._intercept(dt, world.intercept, t);
     this._alarm(dt, world.armored, p, t);
+    this.ambient.update(dt, world.ambient.active, t);
     for (const e of events) this._event(e);
   }
 
@@ -315,7 +319,8 @@ export class GameAudio {
   }
 
   _event(type) {
-    if (type === 'icptStart') this._jingle([440, 554, 659], 0.08, 'sine', 0.1);
+    if (type.startsWith('amb')) this.ambient.event(type);
+    else if (type === 'icptStart') this._jingle([440, 554, 659], 0.08, 'sine', 0.1);
     else if (type === 'icptEvade') this._tone(300, this.ctx.currentTime, 0.4, 'sawtooth', 0.09, 900);
     else if (type === 'icptDone') this._jingle([659, 880, 1175, 1568], 0.07, 'triangle', 0.14);
     else if (type === 'ramHit') this._heavyHit();

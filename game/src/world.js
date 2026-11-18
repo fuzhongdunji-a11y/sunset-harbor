@@ -19,6 +19,8 @@ import { Wanted } from './wanted.js';
 import { SignalIntercept } from './signalIntercept.js';
 import { ArmoredHeist } from './armoredTruck.js';
 import { Crests } from './crests.js';
+import { AmbientDirector } from './ambient/AmbientDirector.js';
+import { TUNER_DEF } from './ambient/TunerBreakdownEvent.js';
 import { makeRng } from './rng.js';
 import { START_CASH } from './config.js';
 
@@ -49,6 +51,11 @@ export class World {
     this.cash = START_CASH;
     this.wanted = new Wanted((t, k) => this.notify(t, k), {
       onRaise: () => this.emit('wantedUp'),
+      onVouch: (left) => {
+        this.notify(`POLICE VOUCH REDEEMED: ${left === 0 ? '1★ FORGIVEN' : 'ONE STAR FORGIVEN'}`, 'vouch');
+        this.emit('escaped');
+        this.saveRequested = true;
+      },
       onEscape: (peak) => {
         const bonus = 120 * Math.max(1, peak); // shaking the cops off pays, more the hotter it got
         this.cash += bonus;
@@ -58,6 +65,9 @@ export class World {
     });
     this.district = '';
     this.prompt = '';
+    this.promptProgress = -1; // 0..1 fills the bar under the prompt (hold-to-repair), -1 hides it
+    this.ambientCaption = null; // {text, t} bottom-centre caption when an ambient event first comes into notice range
+    this._input = NO_INPUT; // the frame's input, for systems that need held keys outside the physics loop
     this.fx = null; // {kind: 'wasted' | 'busted', t}
     this.saveRequested = false;
     this.stats = { missions: 0 };
@@ -72,6 +82,8 @@ export class World {
     this.police = new Police(this.vehicles, this.net, rng, this.collision);
     this.intercept = new SignalIntercept(this, scene, rng);
     this.armored = new ArmoredHeist(this, scene, rng);
+    this.ambient = new AmbientDirector(this, scene, makeRng(seed * 7919 + 5));
+    this.ambient.register('TUNER', TUNER_DEF);
     this.armoredPops = []; // floating texts ("HEAVY RAM!", "ON-FOOT GRAB!") for the HUD
     this.armoredResult = null; // {lines, total, t} payout breakdown for the HUD after Armored Shakedown
     this.missions = new MissionTracker(this, scene);
@@ -150,6 +162,7 @@ export class World {
       this.placeInCar(v);
     }
     this.wanted.clear();
+    this.wanted.vouch = save.vouch ?? 0;
     this.police.clearAll();
     this.traffic.scatter({ x, z });
     this.peds.populate({ x, z });
@@ -168,6 +181,7 @@ export class World {
 
   update(dt, input, mouse) {
     const p = this.player;
+    this._input = input;
     if (this.fx) {
       this.fx.t += dt;
       input = NO_INPUT;
@@ -241,10 +255,18 @@ export class World {
       this.district = d;
       this.notify(d.toUpperCase(), 'district');
     }
+    this.ambient.update(dt, this._input);
     this.prompt = '';
+    this.promptProgress = -1;
     if (!p.inCar && !this.fx) {
       const car = this._enterCandidate();
       if (car) this.prompt = `[F] ${this._enterVerb(car)} the ${car.type.name}`;
+      const ev = this.ambient.active;
+      if (ev?.prompt) {
+        // the ambient event's own prompt wins; the car it belongs to can still be taken with F
+        this.prompt = car && car.ambientEvent === ev ? `${ev.prompt}   or  F: steal it` : ev.prompt;
+        this.promptProgress = ev.promptBar;
+      }
     }
   }
 
@@ -360,6 +382,8 @@ export class World {
       this.wanted.commit('carjack');
       this.notify('Carjacked!', 'warn');
       this.emit('carjack');
+    } else if (car.ambientEvent) {
+      car.ambientEvent.onStolen(); // the stranded tuner: the owner saw everything and calls the police
     } else if (!car.owned && !car.stolen) {
       if (this._witnessed(car.x, car.z)) {
         this.wanted.commit('stealParked');

@@ -16,7 +16,12 @@ export const CAR_TYPES = {
   // Sun-Crest rewards (milestone 40 and 50)
   duneHopper: { name: 'Dune Hopper', body: 'pickup', len: 4.4, wid: 1.9, wheelbase: 2.7, maxSpeed: 40, accel: 22, brake: 32, maxReverse: 10, weight: 0.85 },
   solari: { name: 'Serena Solari GT', body: 'coupe', len: 4.5, wid: 1.95, wheelbase: 2.65, maxSpeed: 60, accel: 29, brake: 42, maxReverse: 12, weight: 0.95 },
+  // Roadside Tuner Breakdown: the neon-violet street tuner (coupe chassis, +15% pull off the line via accelMult)
+  tuner: { name: 'Kestrel Street Tuner', body: 'coupe', len: 4.4, wid: 1.9, wheelbase: 2.6, maxSpeed: 42, accel: 24, accelMult: 1.15, brake: 38, maxReverse: 12, weight: 0.9 },
 };
+
+export const TUNER_VIOLET = 0x8b1eff;
+const UNDERGLOW = new THREE.Color(0.0, 2.6, 2.9); // above 1.0 so it glows
 
 export const SYNDICATE_BLACK = 0x15171c;
 export const ARMOR_NAVY = 0x1b2a4e;
@@ -183,6 +188,15 @@ export function buildCarModel(typeKey, paint) {
       b.box(-0.3, 0.885, -hl + 0.3, 0.3, 0.9, -hl + 0.38, DARK); // boot seam
       doorZ = [-0.1 * L, 0.12 * L];
     }
+  }
+  if (typeKey === 'tuner') {
+    // cyan underglow: glowing sill strips on both flanks plus a pool of light on the asphalt under the floor
+    for (const sx of [-1, 1]) b.box(sx * (w * 0.92) - 0.03, 0.2, -1.35, sx * (w * 0.92) + 0.03, 0.3, 1.35, UNDERGLOW);
+    b.flat(-w * 0.78, -hl * 0.72, w * 0.78, hl * 0.72, 0.05, UNDERGLOW);
+    // rear wing: two standoffs and a violet blade with cyan end plates
+    for (const sx of [-1, 1]) b.box(sx * w * 0.42 - 0.04, 0.84, -hl + 0.22, sx * w * 0.42 + 0.04, 1.12, -hl + 0.34, DARK);
+    b.box(-w * 0.76, 1.12, -hl + 0.08, w * 0.76, 1.18, -hl + 0.48, paint);
+    for (const sx of [-1, 1]) b.box(sx * w * 0.76 - 0.025, 1.08, -hl + 0.06, sx * w * 0.76 + 0.025, 1.24, -hl + 0.5, UNDERGLOW);
   }
   const seamY = t.body === 'van' ? [0.4, 1.0] : [0.4, beltY - 0.02];
   const armored = t.body === 'armored';

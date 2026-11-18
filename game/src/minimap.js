@@ -320,6 +320,41 @@ export class Minimap {
       g.restore();
     }
 
+    // ambient event (Roadside Tuner): a pulsing light-blue wrench, pinned to the rim while it is beyond the radar radius
+    const drawWrench = !extras.ambient ? null : () => {
+      const dx = (u(extras.ambient.x) - u(player.px)) * zoom;
+      const dy = (v(extras.ambient.z) - v(player.pz)) * zoom;
+      const cs = Math.cos(camYaw), sn = Math.sin(camYaw);
+      let mx = dx * cs - dy * sn, my = dx * sn + dy * cs;
+      const dist = Math.hypot(mx, my), lim = R - 20;
+      if (dist > lim) {
+        mx = (mx / dist) * lim;
+        my = (my / dist) * lim;
+      }
+      g.save();
+      g.translate(R + mx, R + my);
+      g.globalAlpha = 0.8 + 0.2 * Math.sin(now * Math.PI * 4); // 0.6..1.0 at 2 Hz
+      const sc = 1.55 + 0.08 * Math.sin(now * Math.PI * 4);
+      g.scale(sc, sc);
+      g.rotate(Math.PI / 4);
+      g.lineCap = 'round';
+      const wrench = (color, extra) => {
+        g.strokeStyle = color;
+        g.lineWidth = 6 + extra;
+        g.beginPath(); // handle
+        g.moveTo(0, -2);
+        g.lineTo(0, 13);
+        g.stroke();
+        g.lineWidth = 5 + extra; // open C-jaw
+        g.beginPath();
+        g.arc(0, -8, 6.5, -Math.PI / 2 + 0.75, -Math.PI / 2 - 0.75 + Math.PI * 2);
+        g.stroke();
+      };
+      wrench('#12151c', 5);
+      wrench('#5ceeff', 0);
+      g.restore();
+    };
+
     // player: soft view cone behind the arrow, then a dark-haloed coral arrow (always points up)
     g.save();
     g.translate(R, R);
@@ -348,6 +383,7 @@ export class Minimap {
     g.fillStyle = '#ff5a3c';
     g.fill();
     g.restore();
+    if (drawWrench) drawWrench(); // on top of the player arrow so a tuner right next to us still shows
     // rim: dark outer ring + white ring so the disc separates from any scene colour behind it
     g.strokeStyle = 'rgba(12,16,24,0.7)';
     g.lineWidth = 3;

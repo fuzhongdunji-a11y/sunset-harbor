@@ -198,6 +198,7 @@ function buildRig(look, key, { headSeparate, castShadow }) {
   return {
     group,
     setDetail,
+    arms, // shoulder joints [left, right]: scripted gestures (waving, fist-shaking) write their rotation directly
     // speed in m/s drives stride rate, swing, lean and bounce; 0 settles into a relaxed idle
     animate(dt, speed, rate = 1) {
       if (fallT > 0.001) return; // lying down: fall() owns the pose
@@ -254,6 +255,13 @@ export function buildPerson(look = PLAYER_LOOK) {
 }
 
 // A townsperson; variant picks the clothes/build, geometry is shared per variant.
+// A one-off named character (e.g. a stranded driver in an ambient event): straight arms, 5 draw calls, shared geometry per key.
+export function buildNpc(look, key) {
+  const rig = buildRig(look, key, { headSeparate: false, castShadow: false });
+  rig.setDetail(false);
+  return rig;
+}
+
 export const PED_VARIANTS = 40;
 export function buildPedestrian(variant = 0) {
   const k = variant % PED_VARIANTS;

@@ -20,7 +20,8 @@ export function sanitize(raw) {
   }
   // collected Sun-Crest ids: only integers 0..49, no duplicates (an older save simply has none)
   const crests = Array.isArray(raw.crests) ? [...new Set(raw.crests.filter((i) => Number.isInteger(i) && i >= 0 && i < 50))] : [];
-  return { cash: Math.floor(cash), completed: Math.floor(completed), x, z, h, car, crests, savedAt: num(raw.savedAt, 0, 1e15) ?? 0 };
+  const vouch = raw.vouch === 1 ? 1 : 0; // banked Police Vouch from a Roadside Tuner repair (older saves have none)
+  return { cash: Math.floor(cash), completed: Math.floor(completed), x, z, h, car, crests, vouch, savedAt: num(raw.savedAt, 0, 1e15) ?? 0 };
 }
 
 export function loadSave() {
@@ -36,7 +37,7 @@ export function writeSave(world) {
   try {
     const p = world.player;
     const car = p.vehicle ? { type: p.vehicle.typeKey, paint: p.vehicle.paint } : null;
-    const data = { cash: world.cash, completed: world.missions.completed, x: p.px, z: p.pz, h: p.facing, car, crests: world.crests.ids(), savedAt: Date.now() };
+    const data = { cash: world.cash, completed: world.missions.completed, x: p.px, z: p.pz, h: p.facing, car, crests: world.crests.ids(), vouch: world.wanted.vouch, savedAt: Date.now() };
     localStorage.setItem(KEY, JSON.stringify(data));
     return true;
   } catch {

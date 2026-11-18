@@ -19,7 +19,7 @@ export class Hud {
       promptKey: $('prompt-key'), promptText: $('prompt-text'),
       icpt: $('icpt'), icptUp: $('icpt-up'), icptSus: $('icpt-sus'), icptUpPct: $('icpt-up-pct'), icptSusPct: $('icpt-sus-pct'), icptDist: $('icpt-dist'),
       crestN: $('crest-n'), crestToast: $('crest-toast'), ctTitle: $('ct-title'), ctTally: $('ct-tally'), ctFill: $('ct-fill'), ctNext: $('ct-next'),
-      pauseCrests: $('pause-crests'),
+      pauseCrests: $('pause-crests'), vouch: $('vouch'), promptBar: $('prompt-bar'), ambientCap: $('ambient-cap'),
       ams: $('ams'), amsPhase: $('ams-phase'), amsArmor: $('ams-armor'), amsFill: $('ams-fill'), amsPct: $('ams-pct'),
       amsClock: $('ams-clock'), amsTime: $('ams-time'), amsPlus: $('ams-plus'), amsWarn: $('ams-warn'), amsPop: $('ams-pop'),
       amsResult: $('ams-result'), arLines: $('ar-lines'), arTotal: $('ar-total'),
@@ -208,6 +208,35 @@ export class Hud {
     }
   }
 
+  // Ambient city events: the 3 s "[AMBIENT]" caption, the banked Police Vouch badge under the stars, and the hold-to-repair bar on the prompt.
+  _ambient(world, dt) {
+    const e = this.el;
+    const cap = world.ambientCaption;
+    if (cap) {
+      world.ambientCaption = null;
+      e.ambientCap.textContent = cap.text;
+      e.ambientCap.classList.remove('hidden');
+      void e.ambientCap.offsetWidth;
+      e.ambientCap.classList.add('show');
+      this.capTimer = cap.t;
+    }
+    if (this.capTimer > 0) {
+      this.capTimer -= dt;
+      if (this.capTimer <= 0) e.ambientCap.classList.remove('show');
+    }
+    const vouch = world.wanted.vouch > 0;
+    if (this.cache.vouch !== vouch) {
+      this.cache.vouch = vouch;
+      e.vouch.classList.toggle('hidden', !vouch);
+    }
+    const bar = world.promptProgress;
+    const q = bar < 0 ? -1 : Math.round(bar * 100);
+    if (this.cache.pbar !== q) {
+      this.cache.pbar = q;
+      e.promptBar.style.width = q < 0 ? '0' : `${q}%`;
+    }
+  }
+
   show(visible) {
     this.root.classList.toggle('hidden', !visible);
   }
@@ -229,6 +258,7 @@ export class Hud {
     this._intercept(world);
     this._armored(world, dt);
     this._crests(world, dt);
+    this._ambient(world, dt);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);
     const bust = world.police.bustProgress;

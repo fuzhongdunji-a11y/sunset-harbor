@@ -31,6 +31,8 @@ export class Vehicle {
     this.hitBy = null; // the car that delivered it
     this.shield = 0; // seconds of reduced crash damage left (the player's car while ramming an armored truck)
     this.health = 100;
+    this.accelMultiplier = this.type.accelMult ?? 1; // tuned cars pull harder (the Roadside Tuner is 1.15)
+    this.ambientEvent = null; // the ambient city event that owns this car, until it is stolen or driven off
     this.locked = false; // police cruisers and wrecks cannot be entered
     this.wrecked = false;
     this.contact = null; // the car we touched this step
@@ -119,7 +121,7 @@ export class Vehicle {
           const r = Math.max(0, vF) / T.maxSpeed;
           const launch = 1 + 0.4 * Math.max(0, 1 - Math.max(0, vF) / 8);
           const scale = this.driver.isPlayer ? 0.72 : 1; // the player's cars build speed over several seconds so the pull is felt; AI keeps its old pace
-          vF += T.accel * scale * inp.throttle * launch * (1 - Math.pow(r, 1.25)) * dt;
+          vF += T.accel * this.accelMultiplier * scale * inp.throttle * launch * (1 - Math.pow(r, 1.25)) * dt;
         }
       } else if (inp.throttle < 0) {
         if (vF > 0.5) vF = Math.max(0, vF - T.brake * (this.driver.isPlayer ? 0.62 : 1) * dt); // firm but not a wall: ~1.4 s from 100 km/h
