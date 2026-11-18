@@ -242,6 +242,7 @@ export class MissionTracker {
   // Where the marker (and minimap blip) currently points.
   get target() {
     if (this.world.contraband?.active) return this.world.contraband.target; // the boat job points at its next crate / the slip
+    if (this.world.gp?.isBusy()) return null; // the race draws its own route on the minimap
     const s = this.step;
     if (s.kind === 'steal') return this.vehicle ? { x: this.vehicle.x, z: this.vehicle.z } : null;
     if (s.kind === 'intercept') return this.world.intercept.position;
@@ -286,8 +287,8 @@ export class MissionTracker {
     this.ring.rotation.y += dt * 1.5;
     this.ring.position.y = 0.5 + Math.sin(performance.now() / 300) * 0.15;
     const w = this.world, p = w.player, s = this.step;
-    if (w.contraband?.active) {
-      this.marker.visible = false; // the Contraband Drop is the only job running; the street chain waits
+    if (w.contraband?.active || w.gp?.isBusy()) {
+      this.marker.visible = false; // the Contraband Drop or a Sunset GP race is the only job running; the street chain waits
       return null;
     }
     const t = this.target;

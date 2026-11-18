@@ -12,6 +12,7 @@ import { startBench } from './bench.js';
 import { R_NEAR, R_FAR } from './signalIntercept.js';
 import { AirPursuit, setupAirPursuitShot } from './airpursuit.js';
 import { stageCustomsShot } from './customsShot.js';
+import { SunsetGPDirector } from './sunsetGP.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -29,7 +30,9 @@ const input = new Input(canvas);
 const world = new World(scene, camera, seed);
 const air = new AirPursuit(world, scene); // Costa Air-1: hooks itself into world.afterStep, so it ticks wherever the world does
 world.air = air;
-window.__game = { world, renderer, air };
+const gp = new SunsetGPDirector(world, scene); // Sunset GP: hooks itself into world.afterStep like Air-1, and publishes gp.view / gp.mapView for the HUD and minimap
+world.gp = gp;
+window.__game = { world, renderer, air, gp };
 const hud = new Hud();
 window.__game.hud = hud;
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
@@ -47,9 +50,13 @@ const ui = new Ui(input, {
     audio.start(); // runs inside the click / key press that left the title screen
     if (mode === 'continue') {
       const save = loadSave();
-      if (save) world.applySave(save);
+      if (save) {
+        world.applySave(save);
+        gp.restore(save.gp); // championship points, round and the Vento Apex R unlock
+      }
     } else {
       clearSave();
+      gp.restore(null); // a new game starts a fresh championship
     }
     world.rig.snap(world.player, world.collision);
     hud.show(true);
@@ -86,7 +93,8 @@ function drawMinimap() {
     armored: world.armored.mapView,
     ambient: world.ambient.active?.mapIcon ?? null,
     customs: world.customs.mapView,
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    gp: gp.mapView,
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -96,6 +104,7 @@ if (shot) {
   // ?shot=airpursuit is built by airpursuit.js itself (it owns the helicopter, beam and strip staging); every other shot goes through shots.js
   if (shot === 'airpursuit') setupAirPursuitShot(world, air, hud, ui);
   else if (shot === 'customs') stageCustomsShot(world, hud, ui); // Solaris Customs hero frame (customsShot.js)
+  else if (shot === 'gp') gp.setupDeterministicShot(hud, ui); // Sunset GP round 1 under way (sunsetGP.js owns the staging)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();

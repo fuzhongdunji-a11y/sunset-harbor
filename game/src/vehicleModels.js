@@ -19,6 +19,8 @@ export const CAR_TYPES = {
   solari: { name: 'Serena Solari GT', body: 'coupe', len: 4.5, wid: 1.95, wheelbase: 2.65, maxSpeed: 60, accel: 29, brake: 42, maxReverse: 12, weight: 0.95 },
   // Roadside Tuner Breakdown: the neon-violet street tuner (coupe chassis, +15% pull off the line via accelMult)
   tuner: { name: 'Kestrel Street Tuner', body: 'coupe', len: 4.4, wid: 1.9, wheelbase: 2.6, maxSpeed: 42, accel: 24, accelMult: 1.15, brake: 38, maxReverse: 12, weight: 0.9 },
+  // Sunset GP championship reward: the pearl sunset-orange wide-body at the Marina paddock. gripMul 1.18 scales lateral grip.
+  ventoApex: { name: 'Vento Apex R', body: 'coupe', len: 4.5, wid: 2.0, wheelbase: 2.65, maxSpeed: 34.5, accel: 17.5, gripMul: 1.18, brake: 40, maxReverse: 12, weight: 0.95 },
   // Sky-Ad Stunt Hauler: the ramp truck. Only its cab is solid (circles at these z offsets), so cars can drive up the ramp behind it. Never enterable.
   hauler: { name: 'Promo Hauler', body: 'hauler', len: 9.5, wid: 3.7, wheelbase: 6.2, maxSpeed: 14, accel: 8, brake: 20, maxReverse: 4, weight: 5, circles: [3.55, 2.75], circleR: 1.45 },
 };
@@ -202,6 +204,19 @@ export function buildCarModel(typeKey, paint) {
     b.box(-w * 0.76, 1.12, -hl + 0.08, w * 0.76, 1.18, -hl + 0.48, paint);
     for (const sx of [-1, 1]) b.box(sx * w * 0.76 - 0.025, 1.08, -hl + 0.06, sx * w * 0.76 + 0.025, 1.24, -hl + 0.5, UNDERGLOW);
   }
+  if (typeKey === 'ventoApex') {
+    // Vento Apex R aero kit (about 140 triangles): front splitter, side skirts, swan-neck rear wing, cream bonnet and roof stripes
+    b.box(-w * 1.02, 0.16, hl - 0.05, w * 1.02, 0.24, hl + 0.62, DARK);
+    b.box(-w * 1.02, 0.24, hl + 0.57, w * 1.02, 0.27, hl + 0.62, 0xfff1d6);
+    for (const sx of [-1, 1]) {
+      b.box(sx * (w * 0.97) - 0.04, 0.2, -1.5, sx * (w * 0.97) + 0.04, 0.3, 1.5, DARK);
+      b.box(sx * w * 0.38 - 0.03, 0.84, -hl + 0.3, sx * w * 0.38 + 0.03, 1.28, -hl + 0.36, DARK); // swan necks rise from the deck to the top of the blade
+      b.box(sx * w * 0.38 - 0.03, 1.22, -hl + 0.12, sx * w * 0.38 + 0.03, 1.28, -hl + 0.36, DARK);
+      b.box(sx * w * 0.88 - 0.025, 1.2, -hl + 0.02, sx * w * 0.88 + 0.025, 1.46, -hl + 0.52, 0xff7a3d);
+      b.box(sx * 0.1 - 0.05, 0.845, 0.1 * L, sx * 0.1 + 0.05, 0.855, hl - 0.2, 0xfff1d6); // twin bonnet stripes
+    }
+    b.box(-w * 0.88, 1.28, -hl + 0.02, w * 0.88, 1.34, -hl + 0.5, DARK); // wing blade
+  }
   const seamY = t.body === 'van' ? [0.4, 1.0] : [0.4, beltY - 0.02];
   const armored = t.body === 'armored';
   for (const sx of [-1, 1]) {
@@ -311,8 +326,45 @@ export function rimGeometry(hex) {
   return g;
 }
 
+// Sunset GP rivals: the stock body of a car type merged with its four wheels into one flat vertex set, so rivalRacer.js can pack three cars into one draw call.
+// Returns {pos, nrm, col, paint, count, hw, hl} (plain arrays in the car's local frame); paint[i] = 1 where the vertex takes the body colour (recoloured white here, the livery atlas tints it).
+// hw / hl are the body's half width and half length (the atlas mapping in rivalRacer.js turns a paint vertex's x / z into livery u / v with them).
+export function rivalParts(typeKey) {
+  const t = CAR_TYPES[typeKey];
+  const model = buildCarModel(typeKey, SENTINEL);
+  const g = model.chassis.children[0].geometry;
+  const mask = paintMask(typeKey);
+  const n = g.attributes.position.count;
+  const wg = getWheelGeometry();
+  const wn = wg.attributes.position.count;
+  const total = n + wn * 4;
+  const pos = new Float32Array(total * 3), nrm = new Float32Array(total * 3), col = new Float32Array(total * 3), paint = new Uint8Array(total);
+  pos.set(g.attributes.position.array);
+  nrm.set(g.attributes.normal.array);
+  col.set(g.attributes.color.array);
+  for (let i = 0; i < n; i++) {
+    if (mask[i]) { col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = 1; paint[i] = 1; }
+  }
+  let o = n;
+  const w = t.wid / 2;
+  for (const sz of [1, -1]) {
+    for (const sx of [1, -1]) {
+      for (let i = 0; i < wn; i++, o++) {
+        pos[o * 3] = wg.attributes.position.getX(i) + sx * (w - 0.1);
+        pos[o * 3 + 1] = wg.attributes.position.getY(i) + WHEEL_R;
+        pos[o * 3 + 2] = wg.attributes.position.getZ(i) + sz * (t.wheelbase / 2);
+        nrm.set([wg.attributes.normal.getX(i), wg.attributes.normal.getY(i), wg.attributes.normal.getZ(i)], o * 3);
+        col.set([wg.attributes.color.getX(i), wg.attributes.color.getY(i), wg.attributes.color.getZ(i)], o * 3);
+      }
+    }
+  }
+  g.dispose();
+  return { pos, nrm, col, paint, count: total, hw: t.wid / 2, hl: t.len / 2 };
+}
+
 // Rear GT wing and front splitter in the type's local frame (the wing is skipped on vans / pickups, which have no deck to carry it).
-function aeroKit(b, t, accent) {
+function aeroKit(b, t, accent, typeKey) {
+  if (typeKey === 'ventoApex') return; // the Vento Apex R is built with its own splitter and swan-neck wing: a Customs aero kit would stack a second set on top
   const w = t.wid / 2, hl = t.len / 2;
   b.box(-w * 1.0, 0.16, hl - 0.05, w * 1.0, 0.24, hl + 0.6, DARK); // front splitter
   b.box(-w * 1.0, 0.24, hl + 0.55, w * 1.0, 0.27, hl + 0.6, accent); // lip highlight
@@ -331,7 +383,7 @@ export function buildCustomBody(typeKey, baseGeo, paintHex, accentHex, aero) {
   let kit = null;
   if (aero) {
     const kb = new MeshBuilder();
-    aeroKit(kb, CAR_TYPES[typeKey], new THREE.Color(accentHex));
+    aeroKit(kb, CAR_TYPES[typeKey], new THREE.Color(accentHex), typeKey);
     kit = kb;
   }
   const extra = kit ? kit.pos.length / 3 : 0;

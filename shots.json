@@ -1,6 +1,6 @@
 [
   { "name": "1-start.jpg", "query": "?shot=start&seed=1" },
   { "name": "2-customs.jpg", "query": "?shot=customs&seed=1" },
-  { "name": "3-air.jpg", "query": "?shot=airpursuit&seed=1" },
+  { "name": "3-gp.jpg", "query": "?shot=gp&seed=202607" },
   { "name": "4-harbor.jpg", "query": "?shot=harbor_chase&seed=1" }
 ]

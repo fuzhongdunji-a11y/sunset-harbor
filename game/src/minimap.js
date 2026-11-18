@@ -129,7 +129,7 @@ export class Minimap {
     g.drawImage(this.map, 0, 0);
     const now = extras.now ?? performance.now() / 1000; // extras.now lets a screenshot preset freeze the blink/pulse clock
     for (const car of vehicles.list) {
-      if (car === player.vehicle || car.kind === 'target') continue; // the intercept quarry gets its own triangle
+      if (car === player.vehicle || car.kind === 'target' || car.kind === 'rival') continue; // the intercept quarry gets its own triangle; Sunset GP rivals get coloured dots
       const police = car.kind === 'police';
       const parked = car.kind === 'parked';
       g.save();
@@ -191,6 +191,70 @@ export class Minimap {
         g.lineWidth = 2;
         g.stroke();
         g.fill();
+        g.restore();
+      }
+    }
+    // Sunset GP: checkered start ring while idle; during a race the glowing route, a pulsing cyan ring on the active gate, a checkered finish and the three rival dots
+    const gp = extras.gp;
+    if (gp) {
+      const ring = (x, z, r, col) => { g.strokeStyle = col; g.lineWidth = 3 * inv; g.beginPath(); g.arc(u(x), v(z), r * inv, 0, Math.PI * 2); g.stroke(); };
+      if (gp.start) {
+        g.save();
+        g.translate(u(gp.start.x), v(gp.start.z));
+        g.scale(inv, inv);
+        g.beginPath();
+        g.arc(0, 0, 9, 0, Math.PI * 2);
+        g.strokeStyle = '#12151c';
+        g.lineWidth = 6;
+        g.stroke();
+        g.strokeStyle = gp.start.blocked ? '#ffaa22' : '#ff2a85';
+        g.lineWidth = 3.4;
+        g.stroke();
+        g.fillStyle = '#ffffff';
+        g.beginPath();
+        g.arc(0, 0, 3.6, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+      }
+      if (gp.route && gp.route.length > 1) {
+        g.lineJoin = 'round';
+        g.beginPath();
+        gp.route.forEach((q, i) => (i ? g.lineTo(u(q.x), v(q.z)) : g.moveTo(u(q.x), v(q.z))));
+        g.strokeStyle = 'rgba(255,42,133,0.35)';
+        g.lineWidth = 7 * inv;
+        g.stroke();
+        g.strokeStyle = '#ff2a85';
+        g.lineWidth = 2.5 * inv;
+        g.stroke();
+      }
+      if (gp.gate) ring(gp.gate.x, gp.gate.z, 7 + 2.5 * Math.sin(now * 6), '#00e5ff');
+      if (gp.finish && gp.route) {
+        g.save();
+        g.translate(u(gp.finish.x), v(gp.finish.z));
+        g.scale(inv, inv);
+        for (let a = 0; a < 3; a++) for (let b2 = 0; b2 < 3; b2++) { g.fillStyle = (a + b2) % 2 ? '#ffffff' : '#12151c'; g.fillRect(-6 + a * 4, -6 + b2 * 4, 4, 4); }
+        g.restore();
+      }
+      const maxD = (R - 14) / zoom; // far rivals ride the rim so the pack spacing stays readable
+      for (const r of gp.rivals ?? []) {
+        let dx = u(r.x) - u(player.px), dy = v(r.z) - v(player.pz);
+        const d = Math.hypot(dx, dy);
+        if (d > maxD) { dx *= maxD / d; dy *= maxD / d; }
+        g.save();
+        g.translate(u(player.px) + dx, v(player.pz) + dy);
+        g.scale(inv, inv);
+        g.rotate(-r.h);
+        g.beginPath();
+        g.arc(0, 0, 4.5, 0, Math.PI * 2);
+        g.fillStyle = r.color;
+        g.fill();
+        g.strokeStyle = 'rgba(12,16,24,0.95)';
+        g.lineWidth = 1.5;
+        g.stroke();
+        g.beginPath();
+        g.moveTo(0, -4.5);
+        g.lineTo(0, -9);
+        g.stroke(); // nose tick
         g.restore();
       }
     }

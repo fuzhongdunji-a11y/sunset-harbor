@@ -204,7 +204,7 @@ export class Vehicle {
       vF = Math.abs(vF) <= drag ? 0 : vF - Math.sign(vF) * drag;
     }
     // grip eases back after a handbrake slide instead of snapping, so the car settles out of a drift
-    const gripTarget = (driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9) * (flat ? PUNCTURE.grip : 1);
+    const gripTarget = (driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9) * (flat ? PUNCTURE.grip : 1) * (T.gripMul ?? 1); // gripMul: Vento Apex R lateral grip 1.18x
     this.grip += (gripTarget - this.grip) * Math.min(1, (gripTarget < this.grip ? 20 : 5 * this.gripRecover) * dt);
     this.slip = Math.abs(vR);
     vR *= Math.exp(-this.grip * dt);
@@ -357,6 +357,16 @@ export class VehicleManager {
     return v;
   }
 
+  // A Sunset GP rival: a real physics car (collides with the player, traffic and walls, is seen by traffic and the contact shadows) that is NOT drawn as its own meshes,
+  // because rivalRacer.js renders all three rivals as one batched mesh. The caller steers it through `input` and caps its speed with `topSpeed`.
+  spawnRival(typeKey, paint, x, z, heading) {
+    const v = this.spawn(typeKey, paint, x, z, heading, 'rival');
+    v.locked = true;
+    v.driver = { ai: true, isPlayer: false, rival: true };
+    this.scene.remove(v.group); // keeps cull() and the shadow blobs working on group.visible while nothing is drawn from it
+    return v;
+  }
+
   // The Armored Shakedown truck: locked, never driven by the player. Its AI controller is attached by the caller.
   spawnArmored(x, z, heading, paint) {
     const v = this.spawn('armored', paint, x, z, heading, 'target');
@@ -407,7 +417,7 @@ export class VehicleManager {
     a.bumped = b;
     b.bumped = a;
     a.wake = b.wake = true;
-    const ma = a.type.weight, mb = b.type.weight;
+    const ma = a.type.weight * (a.massMul ?? 1), mb = b.type.weight * (b.massMul ?? 1); // massMul: a Sunset GP rival's extra heft (the Enforcer pushes with 1.35x)
     const total = ma + mb;
     a.x += best.nx * best.depth * (mb / total);
     a.z += best.nz * best.depth * (mb / total);

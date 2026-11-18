@@ -43,7 +43,7 @@ export class AmbientDirector {
   // True while the player is committed to a job (a running clock, a later step, the intercept or the armored truck).
   get missionBusy() {
     const w = this.world, m = w.missions;
-    return m.stepIndex > 0 || m.timeLeft !== null || w.intercept.active || w.armored.active || w.contraband.active;
+    return m.stepIndex > 0 || m.timeLeft !== null || w.intercept.active || w.armored.active || w.contraband.active || !!w.gp?.isBusy(); // a Sunset GP race owns the streets
   }
 
   get event() {

@@ -351,6 +351,7 @@ export class GameAudio {
     this.ambient.update(dt, world.ambient.active, t);
     this.boat.update(dt, world, t);
     this.customs.update(dt, world, t);
+    this._gp(dt, world);
     const air = world.air;
     this.updateRotorAudio(air ? air.audio.dist : 999, air ? air.audio.closing : 0, !!air && air.active && !world.fx);
     for (const e of events) this._event(e);
@@ -435,6 +436,143 @@ export class GameAudio {
   _chord(notes, dur, vol) {
     const t = this.ctx.currentTime;
     for (const f of notes) this._tone(f, t, dur, 'sine', vol);
+  }
+
+  // ---- Sunset GP (all synthesis; sunsetGP.js queues cues in gp.cues and publishes gp.audioView) -------------------------------------------------------------
+  // Countdown beeps: 3-2-1 are a 440 Hz triangle+square blip with a 120 ms decay; GO! is an 880 + 1320 Hz fifth burst of 380 ms.
+  playRaceCountdown(step) {
+    const t = this.ctx.currentTime;
+    if (step > 0) {
+      this._tone(440, t, 0.12, 'triangle', 0.16);
+      this._tone(440, t, 0.12, 'square', 0.05);
+    } else {
+      this._tone(880, t, 0.38, 'triangle', 0.16);
+      this._tone(1320, t, 0.38, 'square', 0.07);
+    }
+  }
+
+  // Two-note FM-ish chime D5 -> A5 in 75 ms; over the last three gates each gate sits one semitone higher (streak 1..3).
+  playGateClear(streak = 0) {
+    const t = this.ctx.currentTime, k = 2 ** (streak / 12);
+    this._tone(587.3 * k, t, 0.075, 'sine', 0.14);
+    this._tone(880 * k, t + 0.04, 0.075, 'sine', 0.12);
+    this._tone(1174.6 * k, t + 0.04, 0.05, 'triangle', 0.04);
+  }
+
+  // Gaining a place: bright major-third (659 -> 830 Hz); losing one: a muted minor-second thud (196 -> 185 Hz).
+  playPositionChange(gained) {
+    const t = this.ctx.currentTime;
+    if (gained) {
+      this._tone(659, t, 0.14, 'triangle', 0.14);
+      this._tone(830, t + 0.1, 0.22, 'triangle', 0.14);
+    } else {
+      this._tone(196, t, 0.2, 'sine', 0.2, 185);
+      this._tone(98, t, 0.22, 'sine', 0.12);
+    }
+  }
+
+  // Crowd swell (band-passed noise, 2.2 s) under a four-voice brass fanfare: C5-E5-G5-C6 on a win, a minor cadence otherwise.
+  playCheckeredFanfare(place) {
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = ctx.createBufferSource();
+    n.buffer = this.noiseBuf;
+    n.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(400, t);
+    bp.frequency.exponentialRampToValueAtTime(1800, t + 1.0);
+    bp.frequency.exponentialRampToValueAtTime(900, t + 2.2);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.14, t + 0.9);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+    n.connect(bp).connect(g).connect(this.master);
+    n.start(t);
+    n.stop(t + 2.3);
+    const notes = place === 1 ? [523.3, 659.3, 784, 1046.5] : [440, 523.3, 659.3, 440];
+    notes.forEach((f, i) => {
+      this._tone(f, t + 0.15 + i * 0.16, 0.5, 'sawtooth', 0.07);
+      this._tone(f * 1.005, t + 0.15 + i * 0.16, 0.5, 'sawtooth', 0.05);
+    });
+  }
+
+  // Three detuned saws (68 / 79 / 92 Hz) through a resonant low-pass whose cutoff revs 220 -> 680 Hz: the rivals revving beside the player on the grid.
+  _revChorus(on) {
+    const ctx = this.ctx, t = ctx.currentTime;
+    if (on && !this.rev) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.Q.value = 4.5;
+      lp.frequency.value = 220;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.1, t + 0.4);
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 1.6;
+      const depth = ctx.createGain();
+      depth.gain.value = 230;
+      lfo.connect(depth).connect(lp.frequency);
+      const oscs = [68, 79, 92].map((f) => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); return o; });
+      lp.connect(g).connect(this.master);
+      lfo.start();
+      this.rev = { oscs, lfo, g, lp };
+    } else if (!on && this.rev) {
+      const r = this.rev;
+      this.rev = null;
+      r.g.gain.cancelScheduledValues(t);
+      r.g.gain.setValueAtTime(r.g.gain.value, t);
+      r.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      r.oscs.forEach((o) => o.stop(t + 0.35));
+      r.lfo.stop(t + 0.35);
+    }
+  }
+
+  // One shared rival-engine voice on the nearest rival inside 28 m: sawtooth + exhaust hiss, level (1 - d/28)^2, pitch Doppler-shifted by the closing speed.
+  updateRivalEngineDoppler(dist, relVel, revPhase) {
+    const ctx = this.ctx, t = ctx.currentTime;
+    if (!this.rivalEng) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      const n = ctx.createBufferSource();
+      n.buffer = this.noiseBuf;
+      n.loop = true;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 900;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      const ng = ctx.createGain();
+      ng.gain.value = 0.35;
+      o.connect(lp);
+      n.connect(ng).connect(lp);
+      lp.connect(g).connect(this.master);
+      o.start();
+      n.start();
+      this.rivalEng = { o, g, lp };
+    }
+    const e = this.rivalEng;
+    const near = dist < 28 ? (1 - dist / 28) ** 2 : 0;
+    const f0 = 70 + 40 * Math.sin(revPhase);
+    e.o.frequency.setTargetAtTime(f0 * (343 / Math.max(120, 343 - relVel)), t, 0.05);
+    e.lp.frequency.setTargetAtTime(500 + near * 900, t, 0.1);
+    e.g.gain.setTargetAtTime(near * 0.2, t, 0.06);
+  }
+
+  _gp(dt, world) {
+    const gp = world.gp;
+    if (!gp) return;
+    for (const c of gp.cues.splice(0)) {
+      if (c.k === 'count') this.playRaceCountdown(c.v);
+      else if (c.k === 'gate') this.playGateClear(c.v);
+      else if (c.k === 'pos') this.playPositionChange(c.v > 0);
+      else if (c.k === 'fanfare') this.playCheckeredFanfare(c.v);
+      else if (c.k === 'fail') this._tone(330, this.ctx.currentTime, 0.6, 'sawtooth', 0.09, 90);
+    }
+    this._revChorus(gp.state === 'COUNTDOWN' || gp.state === 'GRID_LOCK');
+    if (gp.racing) {
+      this.revPhase = (this.revPhase ?? 0) + dt * 7;
+      this.updateRivalEngineDoppler(gp.audioView.dist, gp.audioView.closing, this.revPhase);
+    } else if (this.rivalEng) this.rivalEng.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05);
   }
 
   _event(type) {

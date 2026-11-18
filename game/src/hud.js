@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { EVADE_TIME } from './wanted.js';
 import { CREST_TOTAL, QUOTA, GROUP_NAME, MILESTONES, nextMilestone } from './crests.js';
 import { CustomsHud } from './customsHud.js';
+import { GpHud } from './gpHud.js';
 import { S as MAP_S, X_MAX as MAP_X, Z_MAX as MAP_Z } from './minimap.js';
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,7 @@ export class Hud {
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
+    this.gpHud = new GpHud(this.root); // Sunset GP rank badge, gap pills, telemetry, countdown and standings modal
     this.tmp = new THREE.Vector3();
     this.crestTimer = 0;
     this.resultTimer = 0;
@@ -447,6 +449,7 @@ export class Hud {
     this._ambient(world, dt);
     this._air(world);
     this.customsHud.update(world, this.root);
+    this.gpHud.update(world);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);
     const bust = Math.max(world.police.bustProgress, world.patrol.bustProgress);
