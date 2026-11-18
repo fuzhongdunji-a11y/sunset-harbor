@@ -16,6 +16,8 @@ import { Traffic } from './traffic.js';
 import { Pedestrians } from './pedestrians.js';
 import { Police } from './police.js';
 import { Wanted } from './wanted.js';
+import { SignalIntercept } from './signalIntercept.js';
+import { Crests } from './crests.js';
 import { makeRng } from './rng.js';
 import { START_CASH } from './config.js';
 
@@ -58,12 +60,16 @@ export class World {
     this.fx = null; // {kind: 'wasted' | 'busted', t}
     this.saveRequested = false;
     this.stats = { missions: 0 };
+    this.durability = 1; // crash damage multiplier (Sun-Crest milestone 20 lowers it)
+    this.crestToast = null; // {n, tally, group, milestone, t} for the HUD after a Sun-Crest pickup
+    this.crests = new Crests(scene, this.layout, this.collision, seed);
 
     const rng = makeRng(seed * 4099 + 11);
     this.net = new RoadNet(this.layout);
     this.traffic = new Traffic(this.vehicles, this.net, rng);
     this.peds = new Pedestrians(scene, this.net, rng, this.layout.groundHeightAt, PED_COUNT);
     this.police = new Police(this.vehicles, this.net, rng, this.collision);
+    this.intercept = new SignalIntercept(this, scene, rng);
     this.missions = new MissionTracker(this, scene);
     this.traffic.populate(TRAFFIC_COUNT, s);
     this.peds.populate(s);
@@ -120,6 +126,7 @@ export class World {
     const p = this.player;
     this.cash = save.cash;
     this.missions.restore(save.completed);
+    this.crests.restore(save.crests, this);
     let { x, z } = save;
     for (let r = 0; r < 14 && !this.collision.isFree(x, z, 1.6); r += 1) {
       const a = r * 2.4;
@@ -169,6 +176,7 @@ export class World {
     const ctx = { vehicles: this.vehicles.list, points: this._obstaclePoints(), target: null };
     const focus = this.focusPoint;
     this.traffic.update(dt, ctx, focus);
+    this.intercept.drive(dt, ctx);
     const camFwd = { x: Math.sin(this.rig.yaw), z: Math.cos(this.rig.yaw) };
     const arrest = this.fx ? null : this.police.update(dt, ctx, p, this.wanted, camFwd);
     if (arrest === 'busted') this._startFx('busted');
@@ -215,10 +223,13 @@ export class World {
         this.stats.missions++;
         this.saveRequested = true;
         this.emit('mission');
-        this.notify(`MISSION PASSED  +$${done.reward}`, 'mission');
+        this.notify(`MISSION PASSED  +$${done.reward.toLocaleString('en-US')}`, 'mission');
+        if (done.note) this.notify(done.note, 'info');
         this.notify(`Next: ${this.missions.mission.title}`, 'info');
       }
+      this.crests.update(dt, this);
     }
+    this.rig.aid = this.intercept.active && p.inCar ? this.intercept.position : null; // the camera keeps the quarry in frame
     const d = this.layout.districtAt(p.px, p.pz);
     if (d !== this.district) {
       this.district = d;
@@ -270,7 +281,7 @@ export class World {
     if (pv) {
       const other = pv.contact;
       if (other && pv.impact > 4 && other.kind === 'traffic') this.wanted.commit('hitCar');
-      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4);
+      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4 * this.durability);
       if (pv.health <= 0) {
         pv.wrecked = true;
         this._startFx('wasted');

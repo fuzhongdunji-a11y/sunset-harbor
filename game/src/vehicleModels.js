@@ -9,7 +9,14 @@ export const CAR_TYPES = {
   dune: { name: 'Dune Pickup', body: 'pickup', len: 5.1, wid: 2.0, wheelbase: 3.1, maxSpeed: 37, accel: 14, brake: 28, maxReverse: 9, weight: 1.3 },
   patrol: { name: 'Harbor PD Cruiser', body: 'sedan', len: 4.7, wid: 1.9, wheelbase: 2.8, maxSpeed: 45, accel: 23, brake: 36, maxReverse: 11, weight: 1.1 },
   harborVan: { name: 'Harbor Van', body: 'van', len: 5.2, wid: 2.0, wheelbase: 3.2, maxSpeed: 33, accel: 12, brake: 26, maxReverse: 9, weight: 1.5 },
+  // Signal Intercept: the syndicate's black sedan. Fixed paint, not for sale, never enterable.
+  shade: { name: 'Syndicate Sedan', body: 'sedan', len: 4.8, wid: 1.9, wheelbase: 2.85, maxSpeed: 40, accel: 18, brake: 34, maxReverse: 10, weight: 1.15 },
+  // Sun-Crest rewards (milestone 40 and 50)
+  duneHopper: { name: 'Dune Hopper', body: 'pickup', len: 4.4, wid: 1.9, wheelbase: 2.7, maxSpeed: 40, accel: 22, brake: 32, maxReverse: 10, weight: 0.85 },
+  solari: { name: 'Serena Solari GT', body: 'coupe', len: 4.5, wid: 1.95, wheelbase: 2.65, maxSpeed: 60, accel: 29, brake: 42, maxReverse: 12, weight: 0.95 },
 };
+
+export const SYNDICATE_BLACK = 0x15171c;
 
 export const PAINTS = [0xe4572e, 0xf2a541, 0x17a398, 0x2e86ab, 0xf4f1ea, 0x1d2a44, 0xc1366b, 0x7bc47f, 0xcfd3d8, 0x6a4c93, 0xf6d55c];
 

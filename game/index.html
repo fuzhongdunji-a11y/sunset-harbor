@@ -20,9 +20,16 @@
       <div class="m-row"><span id="m-dist"></span><span id="m-time"></span><span id="m-reward"></span></div>
     </div>
 
+    <div id="icpt" class="hidden">
+      <div class="icpt-row up"><div class="icpt-fill" id="icpt-up"></div><span class="icpt-label">DATA UPLOAD</span><span class="icpt-pct" id="icpt-up-pct">0%</span></div>
+      <div class="icpt-row sus"><div class="icpt-fill" id="icpt-sus"></div><span class="icpt-label">SUSPICION</span><span class="icpt-pct" id="icpt-sus-pct">0%</span></div>
+      <div id="icpt-dist">-- m</div>
+    </div>
+
     <div id="topright">
       <div id="cash">$0</div>
       <div id="cash-delta"></div>
+      <div id="crest-count" title="Costa Sun-Crests collected"><b>&#9670;</b> <span id="crest-n">0 / 50</span></div>
       <div id="stars" title="Wanted level"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>
       <div id="evade" class="hidden"><div id="evade-bar"></div><span id="evade-txt">POLICE ON YOU</span></div>
       <div id="bust" class="hidden"><div id="bust-bar"></div><span>BEING ARRESTED</span></div>
@@ -41,6 +48,13 @@
       <div id="car-name"></div>
     </div>
 
+    <div id="crest-toast" class="hidden">
+      <div class="ct-head"><b>&#9670;</b><span id="ct-title">SUN-CRESTS 0 / 50</span></div>
+      <div id="ct-tally"></div>
+      <div id="ct-bar"><i id="ct-fill"></i></div>
+      <div id="ct-next"></div>
+    </div>
+
     <div id="prompt" class="hidden"><b id="prompt-key"></b><span id="prompt-text"></span></div>
     <div id="toast"></div>
     <div id="banner" class="hidden"></div>
@@ -52,6 +66,7 @@
       <div class="kicker">COSTA SERENA &middot; OPEN-CITY CRIME ACTION</div>
       <h1>SUNSET<br>HARBOR</h1>
       <p class="tagline">Sun, palms and trouble. Steal a ride, run the coast road, make a name in a harbor town that never sits still.</p>
+      <p class="tagline sub">New: tail the syndicate sedan in Signal Intercept, and hunt 50 hidden Sun-Crests from the pier to the penthouses.</p>
       <div class="buttons">
         <button id="continue-btn" type="button" class="hidden">CONTINUE</button>
         <button id="start-btn" type="button">NEW GAME</button>
@@ -74,6 +89,7 @@
     <div class="title-card small">
       <h2>PAUSED</h2>
       <p>Click or press Enter to get back to Costa Serena.</p>
+      <p id="pause-crests" class="pause-crests"></p>
       <div class="controls">
         <div><b>W A S D</b><span>move / drive</span></div>
         <div><b>F</b><span>get in / out of a car</span></div>

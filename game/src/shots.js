@@ -1,4 +1,4 @@
-// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
+// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people|intercept|crest scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
 const KEYS = (...codes) => ({
   down: (...c) => c.some((k) => codes.includes(k)),
   pressed: () => false,
@@ -55,6 +55,62 @@ export function prepareShot(name, { world, hud, ui }) {
     P.placeBetween(ped[2], E3, E4, 0.5);
     P.placeBetween(ped[6], E3, E4, 0.75);
     run(world, 140, KEYS('KeyW'), hud);
+    return;
+  }
+
+  // Signal Intercept mid-job: a Vesper tails the black sedan down the x = 0 avenue about 30 m behind it, the cyan range cylinder and red inner ring around the quarry
+  if (name === 'intercept') {
+    const car = world.vehicles.spawn('vesper', 0x17a398, L.xs[4] - 4.5, -186, 0);
+    car.vz = 12;
+    car.speedF = 12;
+    world.placeInCar(car);
+    world.cash = 3850;
+    world.rig.yaw = 0;
+    for (const v of [...world.vehicles.list]) if (v.kind === 'parked' && v !== car && Math.abs(v.x) < 14 && v.z > -230 && v.z < -60) world.vehicles.remove(v);
+    setMission(world, 8, 1);
+    const ic = world.intercept;
+    ic.start({ i: 4, j: 1, d: 2, along: 40 }); // 40 m south of the junction at z = -200, in the southbound lane
+    world.district = L.districtAt(car.x, car.z); // no "entering" toast over the picture
+    const T = world.traffic;
+    const t1 = T.net.lanePoint(4, 2, 3, 40); // oncoming traffic in the other lane, 40 m north of the z = -120 junction
+    T.spawnAt(4, 2, 3, t1.x, t1.z, 'pico');
+    const P = world.peds.list;
+    world.peds.placeBetween(P[0], { i: 4, j: 1, sx: -1, sz: 1 }, { i: 4, j: 2, sx: -1, sz: -1 }, 0.5);
+    world.peds.placeBetween(P[1], { i: 4, j: 1, sx: 1, sz: 1 }, { i: 4, j: 2, sx: 1, sz: -1 }, 0.4);
+    run(world, 24, KEYS('KeyW'), hud);
+    ic.upload = 46; // mid-job readouts: upload past the 33 s mark, a little suspicion from sitting too close earlier
+    ic.susp = 14;
+    ic.peakSusp = 14;
+    ic.timeLeft = 91;
+    world.messages.length = 0;
+    hud.toastQueue.length = 0;
+    hud.toastTimer = 0;
+    world.rig.snap(world.player, world.collision);
+    run(world, 3, KEYS('KeyW'), hud);
+    return;
+  }
+
+  // Costa Sun-Crests: standing on the sand with a crest ahead; the 10th pickup (milestone) has just landed on the HUD, the rest of the gold shows on the minimap
+  if (name === 'crest') {
+    const list = world.crests.list;
+    const beach = list.filter((c) => c.group === 'beach');
+    const target = beach.reduce((a, b) => (Math.hypot(b.x + 40, b.z - 315) < Math.hypot(a.x + 40, a.z - 315) ? b : a));
+    const near = list.filter((c) => c !== target && Math.hypot(c.x - target.x, c.z - target.z) < 90);
+    const p = world.player;
+    p.x = target.x + 7.5;
+    p.z = target.z - 5.5;
+    p.heading = Math.atan2(-7.5, 5.5);
+    world.rig.yaw = p.heading - 0.5; // camera turned a little so the crest sits beside the player, not behind them
+    world.rig.pitch = 0.16;
+    world.cash = 6100;
+    // nine crests already in the bag (not the ones in view), then the tenth
+    const owned = list.filter((c) => c !== target && !near.includes(c)).slice(0, 9);
+    for (const c of owned) world.crests.got.add(c.id);
+    world.crests._collect(near[0] ?? list.find((c) => c !== target && !owned.includes(c)), world);
+    world.crests.radius = 60; // wide enough for the shot's minimap to show the neighbours too
+    run(world, 30, KEYS(), hud);
+    world.rig.snap(p, world.collision);
+    run(world, 2, KEYS(), hud);
     return;
   }
 

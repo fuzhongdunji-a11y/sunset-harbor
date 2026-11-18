@@ -117,3 +117,32 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #mission.flash { animation: missionFlash 0.9s ease-out; }
 @keyframes missionFlash { 0% { background: rgba(255, 210, 63, 0.85); transform: translateX(-12px); } 100% { background: rgba(16, 22, 32, 0.72); transform: none; } }
 #m-time.late { animation: pulse 0.5s infinite alternate; }
+
+/* Signal Intercept: dual bars at top centre (DATA UPLOAD above SUSPICION) with a live range readout */
+#icpt { position: absolute; left: 50%; top: 14px; width: 280px; transform: translateX(-50%); }
+.icpt-row { position: relative; height: 16px; margin-bottom: 5px; background: rgba(8, 14, 22, 0.78); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 3px; overflow: hidden; }
+.icpt-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+.icpt-row.up .icpt-fill { background: linear-gradient(90deg, #1796b8, #5ee8ff); }
+.icpt-row.sus .icpt-fill { background: linear-gradient(90deg, #f2b53a, #e8402c); }
+.icpt-label, .icpt-pct { position: absolute; top: 0; line-height: 16px; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 1px 2px #000; }
+.icpt-label { left: 8px; }
+.icpt-pct { right: 8px; font-variant-numeric: tabular-nums; }
+#icpt-dist { text-align: center; font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #5ee8ff; text-shadow: 0 2px 0 rgba(0, 30, 40, 0.85), 0 0 10px rgba(0, 0, 0, 0.6); }
+#icpt-dist.near { color: #ff7a5c; animation: pulse 0.3s infinite alternate; }
+#icpt-dist.far { color: #ffd23f; animation: pulse 0.4s infinite alternate; }
+
+/* Costa Sun-Crests: counter under the cash and the pickup card */
+#crest-count { margin-top: 2px; font-size: 20px; font-weight: 800; color: #ffd23f; text-shadow: 0 2px 0 rgba(60, 40, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6); font-variant-numeric: tabular-nums; }
+#crest-count b { color: #ffe27a; }
+#crest-toast { position: absolute; right: 26px; top: 190px; width: 344px; padding: 10px 14px 12px; text-align: left; background: rgba(16, 22, 32, 0.8); border-right: 6px solid #ffd23f; border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
+#crest-toast.show { animation: crestIn 0.35s cubic-bezier(0.2, 1.3, 0.4, 1); }
+@keyframes crestIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ct-head { font-size: 22px; font-weight: 900; letter-spacing: 1.5px; color: #ffd23f; }
+.ct-head b { margin-right: 8px; color: #ffe27a; }
+#ct-tally { margin-top: 3px; font-size: 14px; font-weight: 700; color: #e8eef5; letter-spacing: 0.5px; }
+#ct-bar { height: 8px; margin: 8px 0 4px; background: rgba(255, 255, 255, 0.18); border-radius: 4px; overflow: hidden; }
+#ct-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #f2a541, #ffe27a); }
+#ct-next { font-size: 13px; color: #b9c6d4; }
+#ct-next.hit { color: #8cf5b0; font-weight: 800; font-size: 14px; }
+.tagline.sub { font-size: 15px; margin-top: -10px; color: #ffe9b8; }
+.pause-crests { color: #ffd23f; font-weight: 800; letter-spacing: 1px; }

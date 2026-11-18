@@ -15,6 +15,8 @@ export class GameAudio {
     this.lastImpactT = 0;
     this.gear = 0;
     this.sirenPhase = 0;
+    this.blipT = 0; // Signal Intercept upload blips
+    this.buzzT = 0; // suspicion buzzer / signal-loss beeps
   }
 
   get ready() {
@@ -226,11 +228,50 @@ export class GameAudio {
       this._bird(0.5 + (1 - shore) * 0.2);
     }
 
+    this._intercept(dt, world.intercept, t);
     for (const e of events) this._event(e);
   }
 
+  // Signal Intercept feedback: data blips that climb in pitch with the upload, a buzzer that speeds up with suspicion, double beeps when the link is dropping.
+  _intercept(dt, ic, t) {
+    if (!ic.active) return;
+    const v = ic.view;
+    this.blipT -= dt;
+    this.buzzT -= dt;
+    if (v.zone === 'OPTIMAL' && !v.breaking && this.blipT <= 0) {
+      this.blipT = 0.5;
+      this._tone(660 + v.upload * 6, t, 0.07, 'sine', 0.05);
+      this._tone(990 + v.upload * 8, t + 0.09, 0.06, 'sine', 0.035);
+    } else if (v.zone === 'TOO CLOSE' && this.buzzT <= 0) {
+      this.buzzT = Math.max(0.1, 0.45 - v.susp / 260);
+      this._tone(170 + v.susp * 1.4, t, 0.09, 'square', 0.04 + v.susp * 0.0009);
+    } else if (v.zone === 'SIGNAL LOSS' && !v.breaking && this.buzzT <= 0) {
+      this.buzzT = 1;
+      this._tone(520, t, 0.08, 'triangle', 0.07);
+      this._tone(390, t + 0.13, 0.1, 'triangle', 0.07);
+    }
+  }
+
+  // Several notes at once, long and soft.
+  _chord(notes, dur, vol) {
+    const t = this.ctx.currentTime;
+    for (const f of notes) this._tone(f, t, dur, 'sine', vol);
+  }
+
   _event(type) {
-    if (type === 'mission') this._jingle([523, 659, 784, 1047], 0.11, 'triangle', 0.16);
+    if (type === 'icptStart') this._jingle([440, 554, 659], 0.08, 'sine', 0.1);
+    else if (type === 'icptEvade') this._tone(300, this.ctx.currentTime, 0.4, 'sawtooth', 0.09, 900);
+    else if (type === 'icptDone') this._jingle([659, 880, 1175, 1568], 0.07, 'triangle', 0.14);
+    else if (type === 'failed') this._tone(440, this.ctx.currentTime, 0.55, 'sawtooth', 0.09, 110);
+    else if (type === 'crestNear') this._chord([523, 659, 784], 1.0, 0.035);
+    else if (type === 'crest') {
+      const t = this.ctx.currentTime;
+      [1319, 1760, 2093].forEach((f, i) => this._tone(f, t + i * 0.06, 0.25, 'sine', 0.07));
+      this._tone(659, t, 0.3, 'triangle', 0.06);
+    } else if (type === 'crestMilestone') {
+      this._jingle([523, 659, 784, 1047, 1319], 0.09, 'triangle', 0.16);
+      this._chord([523, 784, 1047], 1.4, 0.05);
+    } else if (type === 'mission') this._jingle([523, 659, 784, 1047], 0.11, 'triangle', 0.16);
     else if (type === 'escaped') this._jingle([392, 523, 659, 784, 1047], 0.09, 'triangle', 0.15);
     else if (type === 'wantedUp') this._jingle([880, 660, 880], 0.09, 'square', 0.07);
     else if (type === 'busted') this._busted();

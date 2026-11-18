@@ -37,6 +37,8 @@ Take your Marlin and follow the mission marker. Steal other cars, but not in fro
 - **Police**: cruisers spawn by star level, chase along the road graph, ram you and arrest you when you are slow and surrounded.
 - **Missions**: six scripted jobs (reach, delivery, car theft, escape) and then endless Courier Jobs, with timers, rewards and map markers.
 - **Save / load**: progress is stored in `localStorage`; damaged data is ignored.
+- **Signal Intercept**: tail a black syndicate sedan 15-45 m behind to fill DATA UPLOAD without filling SUSPICION, survive its evasive moves at 50% and 80%, then break away past 80 m. Payout is $1,400 + $15 per second left + a $400 ghost bonus.
+- **Costa Sun-Crests**: 50 hidden golden medallions (25 city, 10 beach, 15 harbor). $250 each, bonuses and perks at 10/20/30/40/50, saved with your game.
 - **Sound**: engine, tyre roar, siren, crashes, doors, mission, busted and wasted stings, waves and birds, all synthesized with WebAudio.
 - **HUD**: mission panel, cash, stars, speedometer, car condition and a rotating circular minimap.
 

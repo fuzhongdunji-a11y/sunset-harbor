@@ -19,6 +19,9 @@ export class CameraRig {
     this.time = 0;
     this.lead = 0; // smoothed corner / slide look-ahead, radians
     this.fov = 64;
+    this.aid = null; // {x, z}: a point to keep in frame while driving (the Signal Intercept quarry); set by the world every frame
+    this.aidW = 0; // how strongly the aid applies, eased in and out
+    this.lastAid = null;
     this.pos = new THREE.Vector3(0, 5, 0);
     this.target = new THREE.Vector3();
   }
@@ -78,6 +81,19 @@ export class CameraRig {
       focusY = 1.3;
       pivot = new THREE.Vector3(v.x + Math.sin(v.h) * 3, v.y + focusY, v.z + Math.cos(v.h) * 3);
       fovTarget = 62 + 17 * (1 - Math.exp(-speed / 24)); // eases out: the first burst of speed widens the view most
+      // tailing a target: slide the pivot toward it so it stays on screen, and pull back / widen when it is close so both cars fit
+      if (this.aid) this.lastAid = this.aid;
+      this.aidW += ((this.aid ? 1 : 0) - this.aidW) * Math.min(1, 2.5 * dt);
+      if (this.lastAid && this.aidW > 0.01) {
+        const ax = this.lastAid.x - v.x, az = this.lastAid.z - v.z;
+        const ad = Math.max(0.5, Math.hypot(ax, az));
+        const shift = Math.min(3.5, ad * 0.1) * this.aidW;
+        pivot.x += (ax / ad) * shift;
+        pivot.z += (az / ad) * shift;
+        const close = (1 - Math.min(1, ad / 40)) * this.aidW;
+        dist += close * 2.4;
+        fovTarget += close * 5;
+      }
       // small, capped, smoothly decaying knock on a real hit (no per-frame random jitter)
       if (v.impact > 3) this.shake = Math.max(this.shake, Math.min(0.16, (v.impact - 2) * 0.012));
     } else {

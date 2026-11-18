@@ -9,6 +9,7 @@ import { prepareShot } from './shots.js';
 import { loadSave, writeSave, clearSave } from './save.js';
 import { GameAudio } from './audio.js';
 import { startBench } from './bench.js';
+import { R_NEAR, R_FAR } from './signalIntercept.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -71,7 +72,13 @@ resize();
 let mapFrame = 0;
 function drawMinimap() {
   if (!shot && (mapFrame++ & 1)) return; // the minimap redraws at half the frame rate (it is the costliest 2D job)
-  minimap.draw(world.player, world.vehicles, world.missions.target, world.rig.yaw, { peds: world.peds.list });
+  const ic = world.intercept;
+  const q = ic.active ? ic.position : null;
+  minimap.draw(world.player, world.vehicles, world.missions.target, world.rig.yaw, {
+    peds: world.peds.list,
+    crests: world.crests.near,
+    intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
+  });
 }
 
 if (shot) {

@@ -81,7 +81,7 @@ export class Minimap {
     g.drawImage(this.map, 0, 0);
     const now = performance.now() / 1000;
     for (const car of vehicles.list) {
-      if (car === player.vehicle) continue;
+      if (car === player.vehicle || car.kind === 'target') continue; // the intercept quarry gets its own triangle
       const police = car.kind === 'police';
       const parked = car.kind === 'parked';
       g.save();
@@ -119,10 +119,73 @@ export class Minimap {
         g.stroke();
       }
     }
+    const inv = 1 / zoom; // sizes below are screen pixels, drawn inside the zoomed map transform
+    // Sun-Crests inside the radar radius: a golden diamond with a sonar ring that expands every 1.5 s
+    if (extras.crests) {
+      for (const c of extras.crests) {
+        const ph = (now % 1.5) / 1.5;
+        g.save();
+        g.translate(u(c.x), v(c.z));
+        g.strokeStyle = `rgba(255, 210, 63, ${(1 - ph).toFixed(2)})`;
+        g.lineWidth = 2.2 * inv;
+        g.beginPath();
+        g.arc(0, 0, (5 + ph * 24) * inv, 0, Math.PI * 2);
+        g.stroke();
+        g.scale(inv, inv);
+        g.beginPath();
+        g.moveTo(0, -6);
+        g.lineTo(5, 0);
+        g.lineTo(0, 6);
+        g.lineTo(-5, 0);
+        g.closePath();
+        g.fillStyle = '#ffd23f';
+        g.strokeStyle = 'rgba(12,16,24,0.95)';
+        g.lineWidth = 2;
+        g.stroke();
+        g.fill();
+        g.restore();
+      }
+    }
+    // Signal Intercept quarry: cyan triangle, dashed red inner ring (15 m) and a solid outer ring (45 m) that flashes yellow when we are out of range
+    const ic = extras.intercept;
+    if (ic) {
+      g.save();
+      g.translate(u(ic.x), v(ic.z));
+      g.lineWidth = 2.4 * inv;
+      g.strokeStyle = 'rgba(255, 74, 60, 0.95)';
+      g.setLineDash([6 * inv, 5 * inv]);
+      g.beginPath();
+      g.arc(0, 0, ic.near * S, 0, Math.PI * 2);
+      g.stroke();
+      g.setLineDash([]);
+      g.lineWidth = 3.2 * inv;
+      g.strokeStyle = ic.outside && Math.floor(now * 4) % 2 === 0 ? '#ffd23f' : '#4fe6ff';
+      g.beginPath();
+      g.arc(0, 0, ic.far * S, 0, Math.PI * 2);
+      g.stroke();
+      g.rotate(-ic.h);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -8);
+      g.lineTo(6, 6);
+      g.lineTo(-6, 6);
+      g.closePath();
+      g.lineJoin = 'round';
+      g.strokeStyle = '#12151c';
+      g.lineWidth = 5;
+      g.stroke();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 2;
+      g.stroke();
+      g.fillStyle = '#4fe6ff';
+      g.fill();
+      g.restore();
+    }
     g.restore();
 
     // mission marker (clamped to the rim when it is out of range)
-    if (missionPos) {
+    const quarryOnMap = ic && ic.dist * S * zoom <= R - 14; // its triangle already marks the target, so no second pin
+    if (missionPos && !quarryOnMap) {
       const dx = (u(missionPos.x) - u(player.px)) * zoom;
       const dy = (v(missionPos.z) - v(player.pz)) * zoom;
       const cs = Math.cos(camYaw), sn = Math.sin(camYaw);

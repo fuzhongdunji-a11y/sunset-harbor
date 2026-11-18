@@ -36,7 +36,7 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - `src/characters.js` / `src/player.js` — 人型モデルと歩行アニメ、プレイヤー操作と乗降
 - `src/cameraRig.js` — 徒歩/車の追従カメラ
 - `src/input.js` — キー・マウス・ポインタロック
-- `src/missions.js` — ミッション連鎖（到達・配送・車窃盗・逃走の6本 + 無限の自動生成 Courier Job）とワールドマーカー
+- `src/missions.js` — ミッション連鎖（到達・配送・車窃盗・逃走・レース・巡回・Signal Intercept + 無限の自動生成）とワールドマーカー。`src/signalIntercept.js` — Intercept 本体、`src/crests.js` — Sun-Crest 50個
 - `src/hud.js` / `src/minimap.js` / `src/ui.js` — HUD、Canvas ミニマップ、タイトル/ポーズ
 - `src/world.js` — 上記を束ねるシミュレーション本体。`src/shots.js` — `?shot=` 撮影モード
 - Stage 2 で追加済み: `roadNet.js`（道路グラフと車線幾何）、`roadDriver.js`（車線追従AI。交通・警察共用）、`traffic.js`（民間車の循環と再配置）、`pedestrians.js`（歩道コーナーのグラフ歩行・回避・轢かれ）、`wanted.js`（heat→★、逃走タイマー）、`police.js`（パトカーの出動・追跡・逮捕）、`save.js`（localStorage、検証付き）。Stage 3: `audio.js`（WebAudio 合成）、`bench.js`（`?bench=1` 自動運転ベンチ）。
@@ -108,6 +108,17 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - ショット: `shots.json` の4枚目を walk から `marina`（桟橋から夕日の海・空・灯台・ヨット）に変更。4枚とも目視確認済み。shoot.mjs errors なし。
 - 性能（perf.mjs 25秒 640x360）: draw call 平均 100（前回 103）、最大 248、三角形 約148k。`main.ts` 成功。
 - 注意: スカイラインは歩行範囲外の飾り。`?shot=harbor` はクレーン真下の画面（外側埠頭は背後）。
+
+**improve-batch1 記録 v5（コンテンツ量: Gemini 設計の導入）**:
+- 設計: Gemini 4 Carbon 作成の `/home/hatch/workspace/makefun-gta6/gemini-brief2.md`（Signal Intercept / Armored Shakedown / Costa Sun-Crests / 街イベント2種）を採用。優先順に実装。**実装したのは Signal Intercept と Sun-Crests。Armored Shakedown と街イベント（Tuner Breakdown / Sky-Ad Hauler）は未実装**（時間配分で 1・2 の完成度を優先）。
+- 新ファイル: `src/signalIntercept.js`（標的セダン・Upload/Suspicion・回避行動・3D リング・報酬）、`src/crests.js`（配置・InstancedMesh 2本・取得・マイルストーン・セーブ ID）。
+- **Signal Intercept**: スクリプト 8 番。ビーコン（reach、シアン）→ `kind:'intercept'` ステップで黒セダン `shade`（`vehicles.spawnTarget`、locked、`kind:'target'`）が 48〜78m 先の車線に出現し 45km/h で巡航（`RoadDriver`）。15〜45m で Upload +2%/s、15m 未満で Suspicion +25%/s（15m 以上で −10%/s、設計にない減衰を追加。無いと Ghost が不可能）、45m 超で一時停止＆12s で信号ロスト。Upload 50%/80% で標的が回避（ダッシュ 75km/h 6s / 脇道へ強制右左折 `RoadDriver.forceTurn` / 3s 急ブレーキ。順序は乱数）。100% で残り<20s なら +20s、20s 以内に 80m 超へ離脱で成功。失敗: Suspicion100、ロスト12s、標的に接触（`Vehicle.bumped`）、★2以上、150s タイマー、離脱 20s 超過。報酬 $1,400+$15×残秒+($400 ghost: PeakSuspicion<25%)。自動生成の周期は 4 本（Courier→Race→Patrol→Intercept）、`index-9` 起点。HUD は上中央の二重バー（280px）＋距離表示 `31 m [OPTIMAL]`、ミニマップはシアン三角＋赤破線 15m＋シアン実線 45m（範囲外で黄色点滅）、3D は 45m のシアン円筒＋15m の赤リング。
+- 警察抑制（`police.js`）: Intercept 中は ★1 で出動 1 台のみ・出現距離 130m 以上・補充 6 秒間隔。`wanted.heatScale=0.6` で接触の加熱を弱める。
+- **Sun-Crests**: 50 個（市 25: 公園 5＋歩道 20 / ビーチ 10 / 港 15: 桟橋＋コンテナヤード）。金の8角形メダル（InstancedMesh）＋黄色い光の箱で draw call +2。間隔は設計の 110m では収まらないため市 85m / ビーチ 55m / 港 26m に縮小（詰まったら緩和、実測最小 21m）。車線上には置かない。**屋上・ガレージ・日よけ・バージ・ジャンプ台などの高所/難所は未実装（すべて地上）**。35m（マイルストーン40以降 70m）でミニマップに金ダイヤ＋ソナーリング、取得で各 $250、右上トースト 4s（n/50・地区別・次のマイルストーンバー）、カウンター `◆ n / 50`、ポーズ画面に合計。マイルストーン 10/20/30/40/50: +$2,500/5,000/8,000/12,000/25,000、効果は走り+15%（`player.sprintMul`）、衝突ダメージ×0.75（`world.durability`）、手配低下 −20%（`wanted.evadeScale`）、レーダー2倍＋Dune Hopper（ビーチ縁石）、Serena Solari GT（マリーナ縁石）。セーブは `crests`（取得 ID 配列、`sanitize` 検証、旧データ互換）。
+- ファイル別の手当て（前回 v3 の記録が封印できなかった9本に新機能に伴う変更）: `audio.js` 新イベント（icptStart/Evade/Done・failed・crestNear/crest/crestMilestone）と Upload ブリップ/疑念ブザー、`cameraRig.js` 標的を画面内に保つピボット寄せ・近接で引き＋FOV、`hud.js` 二重バー・距離表示・クレストカード/カウンター、`police.js` 抑制ルール、`shots.js` `?shot=intercept|crest`、`vehicles.js` `spawnTarget`・`bumped`、`wanted.js` `heatScale`/`evadeScale`、`world.js` Intercept/Crests の生成・更新・カメラ aid・耐久、`index.html` HUD 要素・タイトルの一文・ポーズのクレスト行。
+- 検証（ブラウザ内スクリプト、`/tmp` の使い捨て）: 勝利時 $1,400+15×63+400=$2,745 を確認、クレスト取得・マイルストーン 10/40/50 の効果と報酬車、保存 ID、配置 50個（25/10/15）。ボットでの追尾はボットが壁に刺さり完走せず（ロジックの上限ケースは手動で検証）。**実機の操作感・長時間プレイは未検証**。
+- ショット: `shots.json` を start / intercept / chase / crest に変更（drive と marina は撤去）。4枚とも目視確認済み。shoot.mjs errors なし。
+- 性能（perf.mjs 25秒 640x360、同日の直前コミットの計測 115 に対し）: draw call 平均 121（+約5%）、最大 238、三角形 約157k。HUD+ミニマップ 3.1→4.4ms。`main.ts` 成功・2回出力一致。game/ 40 ファイル 約1.1MB。
 
 ## 操作
 WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。

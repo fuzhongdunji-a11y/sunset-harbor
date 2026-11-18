@@ -1,5 +1,6 @@
 // hud: DOM overlay (speed, cash, wanted stars, mission panel, prompts, toasts). Only writes to the DOM when a value changes.
 import { EVADE_TIME } from './wanted.js';
+import { CREST_TOTAL, QUOTA, GROUP_NAME, MILESTONES, nextMilestone } from './crests.js';
 
 const $ = (id) => document.getElementById(id);
 const HINT_DIM_AFTER = 14; // seconds of play before the control hints fade back
@@ -16,7 +17,11 @@ export class Hud {
       mission: $('mission'), edge: $('edge'), speedfx: $('speedfx'), drift: $('drift'),
       cashDelta: $('cash-delta'), evade: $('evade'), evadeBar: $('evade-bar'), evadeTxt: $('evade-txt'),
       promptKey: $('prompt-key'), promptText: $('prompt-text'),
+      icpt: $('icpt'), icptUp: $('icpt-up'), icptSus: $('icpt-sus'), icptUpPct: $('icpt-up-pct'), icptSusPct: $('icpt-sus-pct'), icptDist: $('icpt-dist'),
+      crestN: $('crest-n'), crestToast: $('crest-toast'), ctTitle: $('ct-title'), ctTally: $('ct-tally'), ctFill: $('ct-fill'), ctNext: $('ct-next'),
+      pauseCrests: $('pause-crests'),
     };
+    this.crestTimer = 0;
     this.cache = {};
     this.toastTimer = 0;
     this.toastQueue = [];
@@ -68,7 +73,7 @@ export class Hud {
       e.evade.classList.toggle('chased', !searching);
       this._set('evTxt', e.evadeTxt, searching ? 'EVADING...' : 'POLICE ON YOU');
     }
-    if (stars > 0 && searching) e.evadeBar.style.width = `${Math.round(Math.min(1, w.evade / EVADE_TIME) * 100)}%`;
+    if (stars > 0 && searching) e.evadeBar.style.width = `${Math.round(Math.min(1, w.evade / (EVADE_TIME * w.evadeScale)) * 100)}%`;
 
     let edge = 0;
     if (stars > 0 && !world.fx) {
@@ -79,6 +84,64 @@ export class Hud {
     if (this.cache.edge !== q) {
       this.cache.edge = q;
       e.edge.style.opacity = String(q);
+    }
+  }
+
+  // Signal Intercept: DATA UPLOAD over SUSPICION, plus the live distance to the target with its zone tag.
+  _intercept(world) {
+    const e = this.el;
+    const v = world.intercept.view;
+    e.icpt.classList.toggle('hidden', !v.active);
+    if (!v.active) return;
+    const up = Math.round(v.upload), sus = Math.round(v.susp);
+    e.icptUp.style.width = `${v.upload.toFixed(1)}%`;
+    e.icptSus.style.width = `${v.susp.toFixed(1)}%`;
+    this._set('iup', e.icptUpPct, `${up}%`);
+    this._set('isus', e.icptSusPct, `${sus}%`);
+    let tag = v.zone;
+    if (v.zone === 'SIGNAL LOSS' && !v.breaking) tag = `SIGNAL LOSS ${Math.ceil(v.lostLeft)}s`;
+    if (v.breaking) tag = v.dist > 80 ? 'CLEAN BREAK' : 'BREAK AWAY';
+    this._set('idist', e.icptDist, `${Math.round(v.dist)} m [${tag}]`);
+    const cls = v.breaking ? '' : v.zone === 'TOO CLOSE' ? 'near' : v.zone === 'SIGNAL LOSS' ? 'far' : '';
+    if (this.cache.icls !== cls) {
+      this.cache.icls = cls;
+      e.icptDist.className = cls;
+    }
+  }
+
+  // Sun-Crests: running counter, the 4 s pickup card (count, district tally, bar to the next milestone) and the pause-screen total.
+  _crests(world, dt) {
+    const e = this.el;
+    const c = world.crests;
+    const n = c.count;
+    if (this.cache.crestCount !== n) {
+      this.cache.crestCount = n;
+      const ty = c.tally();
+      e.crestN.textContent = `${n} / ${CREST_TOTAL}`;
+      e.pauseCrests.textContent = `Sun-Crests ${n} / ${CREST_TOTAL}  ·  City ${ty.city}/${QUOTA.city}  Beach ${ty.beach}/${QUOTA.beach}  Harbor ${ty.harbor}/${QUOTA.harbor}`;
+    }
+    const t = world.crestToast;
+    if (t) {
+      world.crestToast = null;
+      this.crestTimer = t.t;
+      const nm = nextMilestone(t.n);
+      const prev = [...MILESTONES].reverse().find((m) => m.at <= t.n)?.at ?? 0;
+      e.ctTitle.textContent = `SUN-CRESTS ${t.n} / ${CREST_TOTAL}`;
+      e.ctTally.textContent = `${GROUP_NAME.city} ${t.tally.city}/${QUOTA.city}  ·  ${GROUP_NAME.beach} ${t.tally.beach}/${QUOTA.beach}  ·  ${GROUP_NAME.harbor} ${t.tally.harbor}/${QUOTA.harbor}`;
+      e.ctFill.style.width = `${nm ? Math.round(((t.n - prev) / (nm.at - prev)) * 100) : 100}%`;
+      if (t.milestone) {
+        e.ctNext.className = 'hit';
+        e.ctNext.textContent = `MILESTONE ${t.milestone.at}!  +$${t.milestone.cash.toLocaleString('en-US')}  ${t.milestone.perk}`;
+      } else {
+        e.ctNext.className = '';
+        e.ctNext.textContent = nm ? `+$250   ·   next ${nm.at}: +$${nm.cash.toLocaleString('en-US')}` : '+$250';
+      }
+      this._retrigger(e.crestToast, 'show');
+      e.crestToast.classList.remove('hidden');
+    }
+    if (this.crestTimer > 0) {
+      this.crestTimer -= dt;
+      if (this.crestTimer <= 0) e.crestToast.classList.add('hidden');
     }
   }
 
@@ -100,6 +163,8 @@ export class Hud {
     this.deltaTimer -= dt;
     if (this.deltaTimer <= 0 && e.cashDelta.classList.contains('show')) e.cashDelta.classList.remove('show');
     this._wanted(world);
+    this._intercept(world);
+    this._crests(world, dt);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);
     const bust = world.police.bustProgress;
@@ -119,7 +184,7 @@ export class Hud {
     const left = m.time === null ? null : Math.max(0, m.time);
     this._set('mti', e.mTime, left === null ? `Step ${m.step}` : `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`);
     e.mTime.classList.toggle('late', left !== null && left < 20);
-    this._set('mr', e.mReward, `Reward $${m.reward}`);
+    this._set('mr', e.mReward, `Reward ${m.rewardText ?? `$${m.reward}`}`);
     const inCar = p.inCar;
     if (this.cache.inCar !== inCar) {
       this.cache.inCar = inCar;

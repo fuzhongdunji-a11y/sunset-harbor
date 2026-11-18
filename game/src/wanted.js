@@ -1,6 +1,8 @@
 // wanted: heat -> stars (1-5), crime values, and the evade timer that lowers the level once the player has escaped the police.
 export const STAR_HEAT = [0, 1, 3, 5.5, 8.5, 12]; // heat needed for N stars
 export const CRIME = { stealParked: 1.0, carjack: 3.0, hitPed: 1.2, hitCar: 0.7, ramPolice: 1.6 };
+// Sun-Crest milestone perks that touch the wanted system (the rest live in crests.js)
+export const MILESTONE_EVADE_SCALE = 0.8;
 const SEE_RANGE = 85; // police closer than this keep the search alive
 export const EVADE_TIME = 7; // seconds out of sight per star lost
 
@@ -14,6 +16,8 @@ export class Wanted {
     this.peak = 0; // highest level reached in this chase (sets the escape bonus)
     this.evade = 0; // seconds spent unseen at the current level
     this.cooldowns = {};
+    this.heatScale = 1; // <1 during Signal Intercept: scrapes with traffic add less heat
+    this.evadeScale = 1; // 0.8 once Sun-Crest milestone 30 is reached: stars wear off 20% sooner
   }
 
   static starsFor(heat) {
@@ -26,7 +30,7 @@ export class Wanted {
   commit(kind, amount = CRIME[kind], cooldown = 0.8) {
     if ((this.cooldowns[kind] ?? 0) > 0) return;
     this.cooldowns[kind] = cooldown;
-    this.setHeat(Math.min(STAR_HEAT[5] + 2, this.heat + amount));
+    this.setHeat(Math.min(STAR_HEAT[5] + 2, this.heat + amount * this.heatScale));
     this.evade = 0;
   }
 
@@ -57,7 +61,7 @@ export class Wanted {
       return;
     }
     this.evade += dt;
-    if (this.evade >= EVADE_TIME) {
+    if (this.evade >= EVADE_TIME * this.evadeScale) {
       this.evade = 0;
       const n = this.stars - 1;
       this.heat = n === 0 ? 0 : STAR_HEAT[n];

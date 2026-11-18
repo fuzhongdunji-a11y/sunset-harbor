@@ -26,6 +26,7 @@ export class Player {
     this.mode = 'foot'; // 'foot' | 'car'
     this.vehicle = null;
     this.speed = 0;
+    this.sprintMul = 1; // raised by Sun-Crest milestone 10
     this.person = buildPerson();
     this.person.group.position.set(x, this.y, z);
     scene.add(this.person.group);
@@ -94,7 +95,7 @@ export class Player {
     let dx = s * fwd + -c * side; // camera forward + camera right (-cos, sin)
     let dz = c * fwd + s * side;
     const len = Math.hypot(dx, dz);
-    const top = input.down('ShiftLeft', 'ShiftRight') ? SPRINT : WALK;
+    const top = input.down('ShiftLeft', 'ShiftRight') ? SPRINT * this.sprintMul : WALK;
     let tx = 0, tz = 0;
     if (len > 0.01) {
       tx = (dx / len) * top;

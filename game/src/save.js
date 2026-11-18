@@ -14,11 +14,13 @@ export function sanitize(raw) {
   const h = num(raw.h, -50, 50);
   if (cash === null || completed === null || x === null || z === null || h === null) return null;
   let car = null;
-  if (raw.car && typeof raw.car === 'object' && typeof raw.car.type === 'string' && Object.hasOwn(CAR_TYPES, raw.car.type) && raw.car.type !== 'patrol') {
+  if (raw.car && typeof raw.car === 'object' && typeof raw.car.type === 'string' && Object.hasOwn(CAR_TYPES, raw.car.type) && raw.car.type !== 'patrol' && raw.car.type !== 'shade') {
     const paint = num(raw.car.paint, 0, 0xffffff);
     if (paint !== null) car = { type: raw.car.type, paint: Math.floor(paint) };
   }
-  return { cash: Math.floor(cash), completed: Math.floor(completed), x, z, h, car, savedAt: num(raw.savedAt, 0, 1e15) ?? 0 };
+  // collected Sun-Crest ids: only integers 0..49, no duplicates (an older save simply has none)
+  const crests = Array.isArray(raw.crests) ? [...new Set(raw.crests.filter((i) => Number.isInteger(i) && i >= 0 && i < 50))] : [];
+  return { cash: Math.floor(cash), completed: Math.floor(completed), x, z, h, car, crests, savedAt: num(raw.savedAt, 0, 1e15) ?? 0 };
 }
 
 export function loadSave() {
@@ -34,7 +36,7 @@ export function writeSave(world) {
   try {
     const p = world.player;
     const car = p.vehicle ? { type: p.vehicle.typeKey, paint: p.vehicle.paint } : null;
-    const data = { cash: world.cash, completed: world.missions.completed, x: p.px, z: p.pz, h: p.facing, car, savedAt: Date.now() };
+    const data = { cash: world.cash, completed: world.missions.completed, x: p.px, z: p.pz, h: p.facing, car, crests: world.crests.ids(), savedAt: Date.now() };
     localStorage.setItem(KEY, JSON.stringify(data));
     return true;
   } catch {

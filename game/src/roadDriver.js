@@ -87,6 +87,16 @@ export class RoadDriver {
     this.setSegment(to[0], to[1], d);
   }
 
+  // Commit to a turn at the next junction no matter what was chosen before (side: 'left' | 'right'). Returns false when that road does not exist.
+  forceTurn(side) {
+    if (this.stage !== 'approach') return false;
+    const o = (side === 'left' ? LEFT_TURN : RIGHT_TURN)[this.d];
+    if (!this.net.step(this.ti, this.tj, o)) return false;
+    this.next = o;
+    this.chosen = true;
+    return true;
+  }
+
   _choose(target) {
     const { net, d } = this;
     const opts = [d, RIGHT_TURN[d], LEFT_TURN[d]].filter((o) => net.step(this.ti, this.tj, o));

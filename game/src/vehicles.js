@@ -25,7 +25,8 @@ export class Vehicle {
     this.pitch = 0;
     this.grip = 8.5; // current lateral grip, eased toward its target
     this.slip = 0; // sideways speed (m/s) before grip acts: drift readout for camera and HUD
-    this.kind = 'parked'; // 'parked' | 'traffic' | 'police' (drives minimap colour and AI rules)
+    this.kind = 'parked'; // 'parked' | 'traffic' | 'police' | 'target' (drives minimap colour and AI rules; 'target' = Signal Intercept sedan)
+    this.bumped = null; // last car that hit us since the owner cleared it (survives the physics sub-steps, unlike `contact`)
     this.health = 100;
     this.locked = false; // police cruisers and wrecks cannot be entered
     this.wrecked = false;
@@ -247,6 +248,13 @@ export class VehicleManager {
     return v;
   }
 
+  // The Signal Intercept quarry: a black sedan nobody can climb into. Its AI controller is attached by the caller.
+  spawnTarget(x, z, heading, paint) {
+    const v = this.spawn('shade', paint, x, z, heading, 'target');
+    v.locked = true;
+    return v;
+  }
+
   remove(v) {
     const k = this.list.indexOf(v);
     if (k >= 0) this.list.splice(k, 1);
@@ -279,6 +287,8 @@ export class VehicleManager {
     if (!best) return;
     a.contact = b;
     b.contact = a;
+    a.bumped = b;
+    b.bumped = a;
     a.wake = b.wake = true;
     const ma = a.type.weight, mb = b.type.weight;
     const total = ma + mb;

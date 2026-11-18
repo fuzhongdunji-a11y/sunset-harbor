@@ -19,6 +19,7 @@ export class Police {
     this.time = 0;
     this.nearest = Infinity;
     this.chaseCruise = 26;
+    this.suppress = false; // Signal Intercept in progress: the first star draws a single, distant patrol (see update)
   }
 
   get bustProgress() {
@@ -47,17 +48,17 @@ export class Police {
     return cop;
   }
 
-  _spawnNearPlayer(player, camFwd) {
+  _spawnNearPlayer(player, camFwd, minDist = 90) {
     const px = player.px, pz = player.pz;
     let best = null, bs = -Infinity;
     for (let t = 0; t < 24; t++) {
       const s = this.net.randomLane(this.rng);
       const dx = px - s.x, dz = pz - s.z;
       const dist = Math.hypot(dx, dz);
-      if (dist < 90 || dist > 170 || !spotFree(this.vm.list, s.x, s.z, 12)) continue;
+      if (dist < minDist || dist > minDist + 80 || !spotFree(this.vm.list, s.x, s.z, 12)) continue;
       const toward = (DIRS[s.d].x * dx + DIRS[s.d].z * dz) / dist;
       const behindCam = camFwd ? (-(dx * camFwd.x + dz * camFwd.z)) / dist : 0; // spot behind the camera is unseen
-      const score = toward * 2 + behindCam * 1.4 - Math.abs(dist - 120) / 60;
+      const score = toward * 2 + behindCam * 1.4 - Math.abs(dist - (minDist + 30)) / 60;
       if (score > bs) { bs = score; best = s; }
     }
     if (best) {
@@ -89,9 +90,11 @@ export class Police {
     // spawn / stand down
     const chasing = this.cops.filter((c) => c.chasing).length;
     this.spawnT -= dt;
-    if (stars > 0 && chasing < COPS_FOR_STARS[stars] && this.spawnT <= 0) {
-      this.spawnT = Math.max(1.2, 2.5 - 0.3 * stars); // reinforcements arrive faster at high levels
-      this._spawnNearPlayer(player, camFwd);
+    // while a Signal Intercept runs, one star means a single patrol that arrives late; from two stars the job fails anyway
+    const copsWanted = this.suppress && stars <= 1 ? 1 : COPS_FOR_STARS[stars];
+    if (stars > 0 && chasing < copsWanted && this.spawnT <= 0) {
+      this.spawnT = this.suppress ? 6 : Math.max(1.2, 2.5 - 0.3 * stars); // reinforcements arrive faster at high levels
+      this._spawnNearPlayer(player, camFwd, this.suppress ? 130 : 90);
     }
     this.nearest = Infinity;
     let close = 0;
