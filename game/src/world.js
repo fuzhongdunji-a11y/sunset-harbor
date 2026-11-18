@@ -17,6 +17,7 @@ import { Pedestrians } from './pedestrians.js';
 import { Police } from './police.js';
 import { Wanted } from './wanted.js';
 import { SignalIntercept } from './signalIntercept.js';
+import { ArmoredHeist } from './armoredTruck.js';
 import { Crests } from './crests.js';
 import { makeRng } from './rng.js';
 import { START_CASH } from './config.js';
@@ -70,6 +71,9 @@ export class World {
     this.peds = new Pedestrians(scene, this.net, rng, this.layout.groundHeightAt, PED_COUNT);
     this.police = new Police(this.vehicles, this.net, rng, this.collision);
     this.intercept = new SignalIntercept(this, scene, rng);
+    this.armored = new ArmoredHeist(this, scene, rng);
+    this.armoredPops = []; // floating texts ("HEAVY RAM!", "ON-FOOT GRAB!") for the HUD
+    this.armoredResult = null; // {lines, total, t} payout breakdown for the HUD after Armored Shakedown
     this.missions = new MissionTracker(this, scene);
     this.traffic.populate(TRAFFIC_COUNT, s);
     this.peds.populate(s);
@@ -177,6 +181,7 @@ export class World {
     const focus = this.focusPoint;
     this.traffic.update(dt, ctx, focus);
     this.intercept.drive(dt, ctx);
+    this.armored.drive(dt, ctx);
     const camFwd = { x: Math.sin(this.rig.yaw), z: Math.cos(this.rig.yaw) };
     const arrest = this.fx ? null : this.police.update(dt, ctx, p, this.wanted, camFwd);
     if (arrest === 'busted') this._startFx('busted');
@@ -213,7 +218,7 @@ export class World {
       }
     }
     this._contactShadows();
-    this._playerCrimesAndDamage();
+    this._playerCrimesAndDamage(dt);
     this.wanted.update(dt, this.police.nearest);
 
     if (!this.fx) {
@@ -225,11 +230,12 @@ export class World {
         this.emit('mission');
         this.notify(`MISSION PASSED  +$${done.reward.toLocaleString('en-US')}`, 'mission');
         if (done.note) this.notify(done.note, 'info');
+        if (done.lines) this.armoredResult = { lines: done.lines, total: done.reward };
         this.notify(`Next: ${this.missions.mission.title}`, 'info');
       }
       this.crests.update(dt, this);
     }
-    this.rig.aid = this.intercept.active && p.inCar ? this.intercept.position : null; // the camera keeps the quarry in frame
+    this.rig.aid = p.inCar ? this.intercept.active ? this.intercept.position : this.armored.aid : null; // the camera keeps the quarry in frame
     const d = this.layout.districtAt(p.px, p.pz);
     if (d !== this.district) {
       this.district = d;
@@ -274,14 +280,16 @@ export class World {
     return 'Steal';
   }
 
-  _playerCrimesAndDamage() {
+  _playerCrimesAndDamage(dt) {
     const p = this.player;
     if (this.fx) return;
     const pv = p.vehicle;
     if (pv) {
       const other = pv.contact;
       if (other && pv.impact > 4 && other.kind === 'traffic') this.wanted.commit('hitCar');
-      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4 * this.durability);
+      const cushion = pv.shield > 0 ? 0.35 : 1; // ramming the armored truck is meant to be repeatable
+      pv.shield = Math.max(0, pv.shield - dt);
+      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4 * this.durability * cushion);
       if (pv.health <= 0) {
         pv.wrecked = true;
         this._startFx('wasted');

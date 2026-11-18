@@ -229,7 +229,63 @@ export class GameAudio {
     }
 
     this._intercept(dt, world.intercept, t);
+    this._alarm(dt, world.armored, p, t);
     for (const e of events) this._event(e);
+  }
+
+  // Armored truck security alarm: 620 / 460 Hz swapping every 0.25 s once the truck is running, fading out over 60 m.
+  _alarm(dt, am, p, t) {
+    if (!am.active || !am.fleeing || am.armor <= 0 || !am.truck) return;
+    const d = Math.hypot(am.truck.x - p.px, am.truck.z - p.pz);
+    if (d >= 60) return;
+    this.alarmT = (this.alarmT ?? 0) - dt;
+    if (this.alarmT > 0) return;
+    this.alarmT = 0.25;
+    this.alarmHi = !this.alarmHi;
+    this._tone(this.alarmHi ? 620 : 460, t, 0.24, 'square', 0.075 * Math.pow(1 - d / 60, 1.3));
+  }
+
+  // Heavy armored-plate hit: a 90 -> 38 Hz sine drop under a hard metallic crash.
+  _heavyHit() {
+    const ctx = this.ctx, t = ctx.currentTime;
+    this._tone(90, t, 0.18, 'sine', 0.5, 38);
+    const n = this._noise(false);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 2600;
+    f.Q.value = 3;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.4, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+    n.connect(f).connect(g).connect(this.master);
+    n.start(t, Math.random() * 0.5, 0.36);
+    this._tone(1180, t, 0.16, 'square', 0.045);
+    this._tone(1730, t + 0.02, 0.12, 'square', 0.035);
+  }
+
+  // Rear door latch (sharp tick) then a bright two-note chime, 880 -> 1320 Hz.
+  _caseDrop() {
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = this._noise(false);
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 3200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.35, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    n.connect(f).connect(g).connect(this.master);
+    n.start(t, Math.random() * 0.5, 0.08);
+    this._tone(180, t, 0.07, 'square', 0.12);
+    this._tone(880, t + 0.12, 0.2, 'sine', 0.13);
+    this._tone(1320, t + 0.26, 0.32, 'sine', 0.13);
+  }
+
+  // A heavy "chink" and a rising C6 - E6 - G6 - C7 arpeggio, 50 ms per note.
+  _casePick() {
+    const t = this.ctx.currentTime;
+    this._tone(2400, t, 0.1, 'triangle', 0.1, 1500);
+    this._tone(300, t, 0.1, 'sine', 0.14, 160);
+    [1047, 1319, 1568, 2093].forEach((f, i) => this._tone(f, t + 0.04 + i * 0.05, 0.2, 'sine', 0.1));
   }
 
   // Signal Intercept feedback: data blips that climb in pitch with the upload, a buzzer that speeds up with suspicion, double beeps when the link is dropping.
@@ -262,6 +318,13 @@ export class GameAudio {
     if (type === 'icptStart') this._jingle([440, 554, 659], 0.08, 'sine', 0.1);
     else if (type === 'icptEvade') this._tone(300, this.ctx.currentTime, 0.4, 'sawtooth', 0.09, 900);
     else if (type === 'icptDone') this._jingle([659, 880, 1175, 1568], 0.07, 'triangle', 0.14);
+    else if (type === 'ramHit') this._heavyHit();
+    else if (type === 'caseDrop') this._caseDrop();
+    else if (type === 'casePick') this._casePick();
+    else if (type === 'amsStart') this._jingle([392, 494, 587], 0.08, 'triangle', 0.1);
+    else if (type === 'amsAlarm') this._tone(900, this.ctx.currentTime, 0.3, 'sawtooth', 0.08, 500);
+    else if (type === 'amsTick') this._tone(1000, this.ctx.currentTime, 0.05, 'square', 0.06);
+    else if (type === 'amsBonus') this._jingle([523, 659, 784, 1047], 0.07, 'triangle', 0.14);
     else if (type === 'failed') this._tone(440, this.ctx.currentTime, 0.55, 'sawtooth', 0.09, 110);
     else if (type === 'crestNear') this._chord([523, 659, 784], 1.0, 0.035);
     else if (type === 'crest') {

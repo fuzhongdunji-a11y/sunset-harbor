@@ -20,8 +20,14 @@ export class Hud {
       icpt: $('icpt'), icptUp: $('icpt-up'), icptSus: $('icpt-sus'), icptUpPct: $('icpt-up-pct'), icptSusPct: $('icpt-sus-pct'), icptDist: $('icpt-dist'),
       crestN: $('crest-n'), crestToast: $('crest-toast'), ctTitle: $('ct-title'), ctTally: $('ct-tally'), ctFill: $('ct-fill'), ctNext: $('ct-next'),
       pauseCrests: $('pause-crests'),
+      ams: $('ams'), amsPhase: $('ams-phase'), amsArmor: $('ams-armor'), amsFill: $('ams-fill'), amsPct: $('ams-pct'),
+      amsClock: $('ams-clock'), amsTime: $('ams-time'), amsPlus: $('ams-plus'), amsWarn: $('ams-warn'), amsPop: $('ams-pop'),
+      amsResult: $('ams-result'), arLines: $('ar-lines'), arTotal: $('ar-total'),
     };
     this.crestTimer = 0;
+    this.resultTimer = 0;
+    this.lastHits = 0;
+    this.lastBonus = 0;
     this.cache = {};
     this.toastTimer = 0;
     this.toastQueue = [];
@@ -109,6 +115,63 @@ export class Hud {
     }
   }
 
+  // Armored Shakedown: phase line, armor gauge (flashes and shakes on a hit), MM:SS clock, warnings, floating bonus texts and the payout card.
+  _armored(world, dt) {
+    const e = this.el;
+    const v = world.armored.view;
+    e.ams.classList.toggle('hidden', !v.active);
+    for (const text of world.armoredPops.splice(0)) {
+      e.amsPop.textContent = text;
+      this._retrigger(e.amsPop, 'show');
+    }
+    const res = world.armoredResult;
+    if (res) {
+      world.armoredResult = null;
+      this.resultTimer = 7.5;
+      e.arLines.innerHTML = '';
+      res.lines.forEach(([label, amount], i) => {
+        const row = document.createElement('div');
+        row.className = `ar-line${amount ? '' : ' zero'}`;
+        row.style.animationDelay = `${0.25 + i * 0.4}s`;
+        row.innerHTML = '<span></span><b></b>';
+        row.firstChild.textContent = label;
+        row.lastChild.textContent = `+$${amount.toLocaleString('en-US')}`;
+        e.arLines.appendChild(row);
+      });
+      e.arTotal.innerHTML = '<span>TOTAL</span><span></span>';
+      e.arTotal.lastChild.textContent = `$${res.total.toLocaleString('en-US')}`;
+      e.arTotal.style.animation = 'none';
+      void e.arTotal.offsetWidth;
+      e.arTotal.style.animation = '';
+      e.amsResult.classList.remove('hidden');
+    }
+    if (this.resultTimer > 0) {
+      this.resultTimer -= dt;
+      if (this.resultTimer <= 0) e.amsResult.classList.add('hidden');
+    }
+    if (!v.active) {
+      this.lastHits = 0;
+      this.lastBonus = 0;
+      return;
+    }
+    this._set('amph', e.amsPhase, v.text);
+    const pct = Math.max(0, Math.round((v.armor / v.armorMax) * 100));
+    e.amsArmor.classList.toggle('hidden', v.phase === 'deliver');
+    e.amsFill.style.width = `${(v.armor / v.armorMax) * 100}%`;
+    this._set('ampct', e.amsPct, `${pct}%`);
+    if (v.hits !== this.lastHits) {
+      this.lastHits = v.hits;
+      this._retrigger(e.amsArmor, 'hit');
+    }
+    const left = Math.max(0, v.timeLeft);
+    this._set('amtime', e.amsTime, `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`);
+    e.amsClock.classList.toggle('late', left <= 25);
+    if (v.bonusT > 0 && this.lastBonus <= 0) this._retrigger(e.amsPlus, 'show');
+    this.lastBonus = v.bonusT;
+    this._set('amwarn', e.amsWarn, v.warn);
+    e.amsWarn.style.color = v.locked ? '#ff4a3c' : v.phase === 'deliver' ? '#ffd23f' : '#ff8a70';
+  }
+
   // Sun-Crests: running counter, the 4 s pickup card (count, district tally, bar to the next milestone) and the pause-screen total.
   _crests(world, dt) {
     const e = this.el;
@@ -164,6 +227,7 @@ export class Hud {
     if (this.deltaTimer <= 0 && e.cashDelta.classList.contains('show')) e.cashDelta.classList.remove('show');
     this._wanted(world);
     this._intercept(world);
+    this._armored(world, dt);
     this._crests(world, dt);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);

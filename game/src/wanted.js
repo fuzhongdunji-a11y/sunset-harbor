@@ -34,6 +34,12 @@ export class Wanted {
     this.evade = 0;
   }
 
+  // Raise the level to at least `n` stars (a higher level stays as it is) and restart the evade timer.
+  raiseTo(n) {
+    this.evade = 0;
+    if (this.stars < n) this.setHeat(STAR_HEAT[n]);
+  }
+
   setHeat(h) {
     const before = this.stars;
     this.heat = h;

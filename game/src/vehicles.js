@@ -27,6 +27,9 @@ export class Vehicle {
     this.slip = 0; // sideways speed (m/s) before grip acts: drift readout for camera and HUD
     this.kind = 'parked'; // 'parked' | 'traffic' | 'police' | 'target' (drives minimap colour and AI rules; 'target' = Signal Intercept sedan)
     this.bumped = null; // last car that hit us since the owner cleared it (survives the physics sub-steps, unlike `contact`)
+    this.hitSpeed = 0; // hardest closing speed (m/s) of a car-to-car hit since the owner last cleared it
+    this.hitBy = null; // the car that delivered it
+    this.shield = 0; // seconds of reduced crash damage left (the player's car while ramming an armored truck)
     this.health = 100;
     this.locked = false; // police cruisers and wrecks cannot be entered
     this.wrecked = false;
@@ -255,6 +258,13 @@ export class VehicleManager {
     return v;
   }
 
+  // The Armored Shakedown truck: locked, never driven by the player. Its AI controller is attached by the caller.
+  spawnArmored(x, z, heading, paint) {
+    const v = this.spawn('armored', paint, x, z, heading, 'target');
+    v.locked = true;
+    return v;
+  }
+
   remove(v) {
     const k = this.list.indexOf(v);
     if (k >= 0) this.list.splice(k, 1);
@@ -305,6 +315,8 @@ export class VehicleManager {
       b.vz -= (j * best.nz) / mb;
       a.impact = Math.max(a.impact, -rel);
       b.impact = Math.max(b.impact, -rel);
+      if (-rel > a.hitSpeed) { a.hitSpeed = -rel; a.hitBy = b; }
+      if (-rel > b.hitSpeed) { b.hitSpeed = -rel; b.hitBy = a; }
     }
   }
 
@@ -314,7 +326,8 @@ export class VehicleManager {
       const d2 = (v.x - cx) * (v.x - cx) + (v.z - cz) * (v.z - cz);
       v.group.visible = d2 < CULL_FAR * CULL_FAR || !!v.driver?.isPlayer;
       const wheels = d2 < WHEEL_NEAR * WHEEL_NEAR;
-      if (wheels !== v.wheelsShown) {
+      if (v.typeKey === 'armored') v.wheelsShown = true;
+      else if (wheels !== v.wheelsShown) {
         v.wheelsShown = wheels;
         for (const wl of v.wheels) wl.steer.visible = wheels;
       }

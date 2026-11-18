@@ -144,5 +144,33 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #ct-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #f2a541, #ffe27a); }
 #ct-next { font-size: 13px; color: #b9c6d4; }
 #ct-next.hit { color: #8cf5b0; font-weight: 800; font-size: 14px; }
+/* Armored Shakedown: phase line, 240 px armor gauge with two slits (three blocks), clock, warning line, floating bonus text, payout card */
+#ams { position: absolute; left: 50%; top: 14px; width: 240px; transform: translateX(-50%); text-align: center; }
+#ams-phase { margin: 0 -80px 6px; font-size: 15px; font-weight: 900; letter-spacing: 2px; color: #ffd23f; white-space: nowrap; text-shadow: 0 2px 0 rgba(60, 40, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.7); }
+#ams-armor { position: relative; height: 20px; background: rgba(8, 14, 22, 0.8); border: 2px solid rgba(255, 255, 255, 0.55); border-radius: 3px; overflow: hidden; }
+#ams-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(90deg, #e8801c, #ffc21a); transition: width 0.18s ease-out; }
+#ams-armor .slit { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: #0b1018; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
+#ams-armor .s1 { left: 33.3%; }
+#ams-armor .s2 { left: 66.6%; }
+.ams-label, .ams-pct { position: absolute; top: 0; line-height: 20px; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 1px 2px #000; }
+.ams-label { left: 8px; }
+.ams-pct { right: 8px; font-variant-numeric: tabular-nums; }
+#ams-armor.hit { animation: armorHit 0.4s ease-out; }
+@keyframes armorHit { 0% { filter: brightness(3); transform: translateX(-6px); } 20% { transform: translateX(6px); } 40% { transform: translateX(-4px); } 60% { transform: translateX(3px); } 100% { filter: none; transform: none; } }
+#ams-clock { position: relative; margin-top: 4px; font-size: 34px; font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums; letter-spacing: 2px; color: #fff; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.7); }
+#ams-clock.late { color: #ff4a3c; animation: pulse 0.25s infinite alternate; }
+#ams-plus { position: absolute; left: calc(50% + 62px); top: 2px; font-size: 26px; color: #62e08a; opacity: 0; text-shadow: 0 2px 0 rgba(10, 70, 40, 0.9); }
+#ams-plus.show { animation: plusPop 2.2s ease-out; }
+@keyframes plusPop { 0% { opacity: 1; transform: scale(2) translateY(8px); } 15% { transform: scale(1) translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+#ams-warn { margin: 0 -90px; min-height: 22px; font-size: 18px; font-weight: 900; letter-spacing: 2px; color: #ff8a70; white-space: nowrap; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.8); animation: pulse 0.4s infinite alternate; }
+#ams-pop { position: absolute; left: 55%; top: 47%; font-size: 40px; font-weight: 900; font-style: italic; letter-spacing: 2px; color: #ffd23f; white-space: nowrap; opacity: 0; text-shadow: 0 4px 0 rgba(90, 50, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.6); }
+#ams-pop.show { animation: floatPop 1.2s ease-out; }
+@keyframes floatPop { 0% { opacity: 0; transform: scale(0.6) translateY(10px); } 12% { opacity: 1; transform: scale(1.15) translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-46px); } }
+#ams-result { position: absolute; left: 50%; top: 27%; width: 400px; transform: translateX(-50%); padding: 14px 20px 16px; background: rgba(16, 22, 32, 0.86); border-top: 6px solid #ffc21a; border-radius: 6px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); }
+.ar-head { font-size: 24px; font-weight: 900; letter-spacing: 3px; color: #ffd23f; text-align: center; margin-bottom: 8px; }
+.ar-line { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; color: #e8eef5; opacity: 0; animation: lineIn 0.35s ease-out forwards; }
+.ar-line.zero { color: #7d8896; }
+@keyframes lineIn { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+#ar-total { margin-top: 8px; padding-top: 6px; border-top: 2px solid rgba(255, 255, 255, 0.3); display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; font-style: italic; color: #8cf5b0; opacity: 0; animation: lineIn 0.4s ease-out 1.7s forwards; }
 .tagline.sub { font-size: 15px; margin-top: -10px; color: #ffe9b8; }
 .pause-crests { color: #ffd23f; font-weight: 800; letter-spacing: 1px; }

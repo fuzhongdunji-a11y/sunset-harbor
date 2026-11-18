@@ -1,6 +1,6 @@
 [
   { "name": "1-start.jpg", "query": "?shot=start&seed=1" },
-  { "name": "2-intercept.jpg", "query": "?shot=intercept&seed=1" },
+  { "name": "2-armored.jpg", "query": "?shot=armored&seed=1" },
   { "name": "3-chase.jpg", "query": "?shot=chase&seed=1" },
-  { "name": "4-crest.jpg", "query": "?shot=crest&seed=1" }
+  { "name": "4-intercept.jpg", "query": "?shot=intercept&seed=1" }
 ]

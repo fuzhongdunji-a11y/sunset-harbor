@@ -174,6 +174,24 @@ export class Pedestrians {
     best.fleeDz = this.rng.range(-1, 1);
   }
 
+  // Everyone within r metres of (x, z) bolts away from it for `time` seconds. Returns how many ran.
+  panic(x, z, r, time = 4) {
+    let n = 0;
+    for (const p of this.list) {
+      if (!p.active || p.state === 'down' || !p.model.group.visible) continue;
+      const dx = p.x - x, dz = p.z - z;
+      const d = Math.hypot(dx, dz);
+      if (d > r) continue;
+      p.state = 'flee';
+      p.timer = time * (0.8 + this.rng() * 0.5);
+      p.crossing = false;
+      p.fleeDx = d > 0.1 ? dx / d : 1;
+      p.fleeDz = d > 0.1 ? dz / d : 0;
+      n++;
+    }
+    return n;
+  }
+
   // Standing-in-the-road people the drivers should brake for.
   roadPoints() {
     return this.list.filter((p) => p.crossing && p.state === 'walk' && p.active);

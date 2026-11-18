@@ -120,6 +120,14 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - ショット: `shots.json` を start / intercept / chase / crest に変更（drive と marina は撤去）。4枚とも目視確認済み。shoot.mjs errors なし。
 - 性能（perf.mjs 25秒 640x360、同日の直前コミットの計測 115 に対し）: draw call 平均 121（+約5%）、最大 238、三角形 約157k。HUD+ミニマップ 3.1→4.4ms。`main.ts` 成功・2回出力一致。game/ 40 ファイル 約1.1MB。
 
+**improve-batch2 記録 1（Armored Shakedown）**:
+- 設計: Gemini 4 Carbon 作成 `/home/hatch/workspace/makefun-gta6/gemini-brief-batch2-1.md`（装甲輸送車強襲）を採用し全体を実装。前セッションが書いた実装を本セッションで動作検証。
+- 新ファイル: `src/armoredTruck.js`（`ArmoredHeist`: 装甲車・アーマー・★エスカレーション・納品ビーコン・報酬・失敗判定）、`src/briefcases.js`（金ブリーフケース3個の放物線/バウンド/回転、光の柱+脈動リングを InstancedMesh 3本、回収判定 車3.8m/徒歩2.6m）、`src/particles.js`（黒煙・火花の ParticlePool）。`vehicleModels.js` に `armored`（ネイビー+ハザード、ルーフ灯2基、重量2.8）、`vehicles.js` に `spawnArmored`・`hitSpeed/hitBy/shield`、`wanted.raiseTo(n)`、`police.scramble`。
+- ミッション: スクリプト 9 番（ビーコン→`kind:'armored'`）。自動生成は 5 本周期（Courier→Race→Patrol→Intercept→Armored）、`index-10` 起点。165秒、アーマー300、ダメージ `clamp((v-6)*5,18,75)`、最低 8m/s・1.2秒クールダウン、200/100/0 HP でケース放出（同時跨ぎは0.35秒差）、★1→★2（1個目放出）→★3（3個目＋パトカー2台即時出動）。3個回収で +30秒・納品点（350〜550m、ビーコン）、パトカー30m以内でロック（赤ビーコン+警告）、納品で★クリア。報酬 $2,800+残秒×$15(上限$2,100)+ヘビーラム×$150(最大4)+徒歩回収×$250(最大3)。失敗: タイマー、アーマー残で280m以上15秒。
+- 検証（`/tmp/ams-test/ams-test.mjs`、ブラウザ内スクリプト、使い捨て）全項目 PASS: 開始時の出現 154m（120〜180）、ラム→ダメージ/★1/逃走21m/s、クールダウン、閾値ごとのケース放出、★3、停止、車での回収と徒歩回収（ON-FOOT GRAB ポップ）、3個目で deliver フェーズ＋ +30秒、ドロップ412m、パトカー8mでロック、離してクリア（$5,750・★0・次ミッションへ）、タイマー失敗、280m 15秒で失敗（14秒時点では継続）。バグ修正は不要だった。未検証: 実機の操作感、アラーム音等の聴感（ヘッドレス）。
+- ショット: `?shot=armored`（黒煙の装甲車・光の柱つきケース・徒歩プレイヤー・★3・ON-FOOT GRAB ポップ）。`shots.json` は start / armored / chase / intercept の4枚に変更（crest は撤去、`?shot=crest` 自体は残存）。4枚とも目視確認済み、shoot.mjs errors なし。
+- 性能（perf.mjs 25秒 640x360）: draw call 平均 111（前回121）、最大 234、三角形 約151k。`main.ts` 成功・2回出力一致。game/ 43 ファイル 約1.2MB。
+
 ## 操作
 WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。
 

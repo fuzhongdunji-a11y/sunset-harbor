@@ -152,6 +152,12 @@ export class Police {
     return null;
   }
 
+  // Put `n` extra cruisers on the road around the player right now (an interception), without waiting for the spawn timer.
+  scramble(player, n, camFwd) {
+    for (let k = 0; k < n; k++) this._spawnNearPlayer(player, camFwd, 75);
+    this.spawnT = 2;
+  }
+
   // Remove every cruiser (after a bust/wasted respawn).
   clearAll() {
     for (const c of [...this.cops]) this._remove(c);

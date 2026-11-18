@@ -67,6 +67,8 @@ function scripted(index, world) {
       return patrolMission('Seaside Patrol', 1400, [[-160, 200], [0, 200], [160, 200], [240, 280], [-80, 280]], world);
     case 8:
       return interceptMission('Signal Intercept', [80, 120], world);
+    case 9:
+      return armoredMission('Armored Shakedown', [-240, 120], world);
     default:
       return null;
   }
@@ -81,6 +83,19 @@ function interceptMission(title, spot, world) {
     steps: [
       { kind: 'reach', x: spot[0], z: spot[1], r: 6, needs: 'any', color: CYAN, text: `Meet the fixer at the beacon outside the cafe in ${world.layout.districtAt(spot[0], spot[1])}` },
       { kind: 'intercept', color: CYAN, text: 'Tail the black sedan: stay 15-45 m behind it' },
+    ],
+  };
+}
+
+// Armored Shakedown: meet the tipster at the beacon, then run the transport down (see armoredTruck.js). The payout is worked out when it ends.
+function armoredMission(title, spot, world) {
+  return {
+    title,
+    reward: 2800,
+    rewardText: '$2,800+',
+    steps: [
+      { kind: 'reach', x: spot[0], z: spot[1], r: 6, needs: 'any', color: GOLD, text: `Meet the tipster at the beacon in ${world.layout.districtAt(spot[0], spot[1])}` },
+      { kind: 'armored', color: GOLD, text: 'Ram the armored truck and grab the gold' },
     ],
   };
 }
@@ -127,21 +142,27 @@ function loopFrom(rng, n, minLeg) {
   return out;
 }
 
-// Endless jobs after the scripted chain, in a repeating cycle: courier, checkpoint race, patrol.
+// Endless jobs after the scripted chain, in a repeating cycle: courier, checkpoint race, patrol, signal intercept, armored shakedown.
+const CYCLE = 5;
 function generated(index, world) {
-  const n = index - 9; // scripted jobs 0-8 come first
-  const kind = n % 4;
+  const n = index - 10; // scripted jobs 0-9 come first
+  const kind = n % CYCLE;
+  const round = Math.floor(n / CYCLE);
   if (kind === 1) {
     const rng = makeRng(index * 331 + 17);
-    return raceMission(`Circuit Race #${Math.floor(n / 4) + 1}`, 1500 + Math.floor(n / 4) * 100, loopFrom(rng, 6, 100), world, 'Street race');
+    return raceMission(`Circuit Race #${round + 1}`, 1500 + round * 100, loopFrom(rng, 6, 100), world, 'Street race');
   }
   if (kind === 2) {
     const rng = makeRng(index * 463 + 9);
-    return patrolMission(`Harbor Patrol #${Math.floor(n / 4) + 1}`, 1200 + Math.floor(n / 4) * 100, loopFrom(rng, 4, 80), world);
+    return patrolMission(`Harbor Patrol #${round + 1}`, 1200 + round * 100, loopFrom(rng, 4, 80), world);
   }
   if (kind === 3) {
     const rng = makeRng(index * 719 + 3);
-    return interceptMission(`Signal Intercept #${Math.floor(n / 4) + 2}`, COURIER_SPOTS[rng.int(0, COURIER_SPOTS.length - 1)], world);
+    return interceptMission(`Signal Intercept #${round + 2}`, COURIER_SPOTS[rng.int(0, COURIER_SPOTS.length - 1)], world);
+  }
+  if (kind === 4) {
+    const rng = makeRng(index * 829 + 7);
+    return armoredMission(`Armored Shakedown #${round + 2}`, COURIER_SPOTS[rng.int(0, COURIER_SPOTS.length - 1)], world);
   }
   return courier(index, n, world);
 }
@@ -155,8 +176,8 @@ function courier(index, n, world) {
   const d = dist(a, b);
   const area = (p) => world.layout.districtAt(p[0], p[1]);
   return {
-    title: `Courier Job #${Math.floor(n / 4) + 1}`,
-    reward: Math.round((350 + d * 1.7 + Math.floor(n / 4) * 40) / 10) * 10,
+    title: `Courier Job #${Math.floor(n / CYCLE) + 1}`,
+    reward: Math.round((350 + d * 1.7 + Math.floor(n / CYCLE) * 40) / 10) * 10,
     steps: [
       { kind: 'reach', x: a[0], z: a[1], r: 5.5, needs: 'any', text: `Pick up the package in ${area(a)}` },
       { kind: 'reach', x: b[0], z: b[1], r: 6, needs: 'car', time: Math.round(30 + d / 7.5), text: `Deliver it to ${area(b)}` },
@@ -191,6 +212,7 @@ export class MissionTracker {
   // Start (or restart) mission number `index`.
   begin(index) {
     this.world.intercept?.cancel(); // a restart or a new job always removes the quarry
+    this.world.armored?.cancel(); // ... and the armored truck
     this.index = index;
     this.mission = scripted(index, this.world) ?? generated(index, this.world);
     this.mission.setup?.(this);
@@ -222,6 +244,7 @@ export class MissionTracker {
     const s = this.step;
     if (s.kind === 'steal') return this.vehicle ? { x: this.vehicle.x, z: this.vehicle.z } : null;
     if (s.kind === 'intercept') return this.world.intercept.position;
+    if (s.kind === 'armored') return this.world.armored.target;
     return { x: s.x, z: s.z };
   }
 
@@ -233,6 +256,7 @@ export class MissionTracker {
     let objective = s.text;
     if (s.requireClean && this.world.wanted.stars > 0) objective = 'Lose the cops first!';
     if (s.kind === 'intercept' && this.world.intercept.upload >= 100) objective = 'UPLOAD COMPLETE: break away past 80 m';
+    if (s.kind === 'armored') objective = this.world.armored.phaseText;
     return {
       title: this.mission.title,
       objective,
@@ -261,7 +285,7 @@ export class MissionTracker {
     this.ring.position.y = 0.5 + Math.sin(performance.now() / 300) * 0.15;
     const w = this.world, p = w.player, s = this.step;
     const t = this.target;
-    this.marker.visible = !!t;
+    this.marker.visible = !!t && s.kind !== 'armored'; // the truck has its chevron, the cases their pillars, the drop-off its beacon
     if (t) this.marker.position.set(t.x, 0.1, t.z);
 
     if (s.kind === 'intercept') {
@@ -276,6 +300,22 @@ export class MissionTracker {
         return null;
       }
       const done = { title: this.mission.title, reward: r.reward, note: `${r.secs}s left${r.ghost ? ' + GHOST BONUS $400' : ''}` };
+      this.completed++;
+      this.begin(this.index + 1);
+      return done;
+    }
+    if (s.kind === 'armored') {
+      // the job runs its own 165 s clock and its own win / fail rules
+      const ar = w.armored;
+      if (!ar.active && !ar.start()) return null; // no free lane in range yet: try again next frame
+      const r = ar.update(dt);
+      this.timeLeft = ar.timeLeft;
+      if (!r) return null;
+      if (r.fail) {
+        this.fail(r.fail);
+        return null;
+      }
+      const done = { title: this.mission.title, reward: r.reward, lines: r.lines, note: `${r.secs}s left` };
       this.completed++;
       this.begin(this.index + 1);
       return done;

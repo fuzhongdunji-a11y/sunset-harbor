@@ -1,4 +1,4 @@
-// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people|intercept|crest scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
+// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people|intercept|armored|crest scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
 const KEYS = (...codes) => ({
   down: (...c) => c.some((k) => codes.includes(k)),
   pressed: () => false,
@@ -87,6 +87,60 @@ export function prepareShot(name, { world, hud, ui }) {
     hud.toastTimer = 0;
     world.rig.snap(world.player, world.collision);
     run(world, 3, KEYS('KeyW'), hud);
+    return;
+  }
+
+  // Armored Shakedown climax on the coast road: the truck sits smoking with its amber beacons flashing, one gold briefcase glows on the asphalt,
+  // the player's coupe is parked at an angle behind them, three stars of police close in and townsfolk bolt off the sidewalk.
+  if (name === 'armored') {
+    const p = world.player;
+    const T = world.traffic, P = world.police, H = world.armored;
+    for (const v of [...world.vehicles.list]) if (v.kind === 'parked' && Math.abs(v.z - 280) < 25 && v.x > -60 && v.x < 150) world.vehicles.remove(v);
+    world.cash = 6400;
+    setMission(world, 9, 1);
+    H.start({ i: 4, j: 7, d: 0, along: 66 });
+    const tr = H.truck;
+    tr.vx = tr.vz = tr.speedF = 0;
+    H.drv.cruise = 0;
+    H.armor = 0;
+    H.fleeing = true;
+    H.crossed = 3;
+    H.released = 3;
+    H.collected = 2;
+    H.foot = 1;
+    H.timeLeft = 71;
+    H.cases.place(50.5, 276.4); // the last case, on the asphalt just ahead
+    const car = world.vehicles.spawn('vesper', 0x17a398, 47, 272.6, Math.PI / 2 + 0.5);
+    car.stolen = true;
+    p.x = 40;
+    p.z = 279.2;
+    p.heading = Math.PI / 2 - 0.1;
+    world.rig.yaw = Math.PI / 2 - 0.22;
+    world.rig.pitch = 0.2;
+    world.wanted.setHeat(5.8);
+    world.wanted.peak = 3;
+    // townsfolk caught on the sidewalk run for it along the shopfronts
+    const peds = world.peds, ped = peds.list;
+    const N1 = { i: 4, j: 7, sx: 1, sz: -1 }, N2 = { i: 5, j: 7, sx: -1, sz: -1 };
+    [0, 1, 2, 5].forEach((k, n) => peds.placeBetween(ped[k], N1, N2, 0.42 + n * 0.1));
+    peds.panic(70, 284, 40);
+    for (const q of ped) if (q.state === 'flee') { q.fleeDx = 1; q.fleeDz = -0.05; q.timer = 6; }
+    world.district = L.districtAt(p.x, p.z);
+    run(world, 60, KEYS(), hud);
+    // the cruisers arrive last (a few frames before the picture) so they are still strung out on the road beyond the truck
+    for (const along of [62, 78, 96]) P.spawnAt(6, 7, 1, along);
+    const t1 = T.net.lanePoint(6, 7, 1, 48);
+    T.spawnAt(6, 7, 1, t1.x, t1.z, 'harborVan');
+    world.wanted.evade = 0; // the cruisers are right there: the heat is not cooling down
+    world.messages.length = 0;
+    hud.toastQueue.length = 0;
+    hud.toastTimer = 0;
+    world.armoredPops.push('ON-FOOT GRAB!  +$250');
+    world.rig.snap(p, world.collision);
+    run(world, 6, KEYS(), hud);
+    const pop = hud.el.amsPop; // freeze the floating text at its peak so the still frame shows it
+    pop.style.animationPlayState = 'paused';
+    pop.style.animationDelay = '-0.3s';
     return;
   }
 

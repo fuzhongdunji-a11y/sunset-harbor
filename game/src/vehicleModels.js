@@ -11,12 +11,16 @@ export const CAR_TYPES = {
   harborVan: { name: 'Harbor Van', body: 'van', len: 5.2, wid: 2.0, wheelbase: 3.2, maxSpeed: 33, accel: 12, brake: 26, maxReverse: 9, weight: 1.5 },
   // Signal Intercept: the syndicate's black sedan. Fixed paint, not for sale, never enterable.
   shade: { name: 'Syndicate Sedan', body: 'sedan', len: 4.8, wid: 1.9, wheelbase: 2.85, maxSpeed: 40, accel: 18, brake: 34, maxReverse: 10, weight: 1.15 },
+  // Armored Shakedown: the transport truck (1.4 x length, 1.25 x width of the sedan, 2.8 x its mass). Never enterable.
+  armored: { name: 'Armored Transport', body: 'armored', len: 6.3, wid: 2.3, wheelbase: 3.9, maxSpeed: 25, accel: 10, brake: 22, maxReverse: 6, weight: 2.8 },
   // Sun-Crest rewards (milestone 40 and 50)
   duneHopper: { name: 'Dune Hopper', body: 'pickup', len: 4.4, wid: 1.9, wheelbase: 2.7, maxSpeed: 40, accel: 22, brake: 32, maxReverse: 10, weight: 0.85 },
   solari: { name: 'Serena Solari GT', body: 'coupe', len: 4.5, wid: 1.95, wheelbase: 2.65, maxSpeed: 60, accel: 29, brake: 42, maxReverse: 12, weight: 0.95 },
 };
 
 export const SYNDICATE_BLACK = 0x15171c;
+export const ARMOR_NAVY = 0x1b2a4e;
+const ARMOR_GOLD = 0xffc21a;
 
 export const PAINTS = [0xe4572e, 0xf2a541, 0x17a398, 0x2e86ab, 0xf4f1ea, 0x1d2a44, 0xc1366b, 0x7bc47f, 0xcfd3d8, 0x6a4c93, 0xf6d55c];
 
@@ -106,6 +110,33 @@ export function buildCarModel(typeKey, paint) {
   const decal = (sx, z0, z1, y0, y1, color) => b.quad([sx * sideX(y0), y0, z0], [sx * sideX(y0), y0, z1], [sx * sideX(y1), y1, z1], [sx * sideX(y1), y1, z0], color, [sx, 0, 0]);
   let doorZ = [0.0]; // door seams (z of each vertical line)
   switch (t.body) {
+    case 'armored': {
+      // boxy navy cargo vault behind a low cab, gold hazard stripes on the flanks and across the rear doors
+      const roof = 0x24376a;
+      const X = w + 0.012;
+      b.slab([-w, -hl, w, 0.35], [-w, -hl, w, 0.35], 0.36, 2.3, { side: paint, top: roof });
+      b.slab([-w * 0.98, 0.3, w * 0.98, hl], [-w * 0.94, 0.4, w * 0.94, hl - 0.1], 0.36, 1.28, body);
+      cabin(b, [-w * 0.9, 0.45, w * 0.9, 2.0], [-w * 0.82, 0.65, w * 0.82, 1.7], 1.28, 2.0, paint, { pillars: [0.5], glints: true });
+      for (const sx of [-1, 1]) {
+        for (let k = 0; k < 7; k++) {
+          const z0 = -hl + 0.25 + k * 0.46;
+          b.quad([sx * X, 0.5, z0], [sx * X, 0.5, z0 + 0.23], [sx * X, 1.1, z0 + 0.53], [sx * X, 1.1, z0 + 0.3], ARMOR_GOLD, [sx, 0, 0]);
+        }
+        b.quad([sx * X, 2.0, -hl + 0.1], [sx * X, 2.0, 0.3], [sx * X, 2.16, 0.3], [sx * X, 2.16, -hl + 0.1], ARMOR_GOLD, [sx, 0, 0]); // gold band under the roof
+        b.quad([sx * X, 1.38, -1.5], [sx * X, 1.38, -1.3], [sx * X, 1.5, -1.3], [sx * X, 1.5, -1.5], DARK, [sx, 0, 0]); // gun slit
+        b.quad([sx * X, 1.38, -0.2], [sx * X, 1.38, 0.0], [sx * X, 1.5, 0.0], [sx * X, 1.5, -0.2], DARK, [sx, 0, 0]);
+        b.quad([sx * X, 0.4, 0.28], [sx * X, 0.4, 0.34], [sx * X, 2.2, 0.34], [sx * X, 2.2, 0.28], DARK, [sx, 0, 0]); // vault / cab seam
+      }
+      b.box(-w * 0.92, 0.9, -hl - 0.04, w * 0.92, 2.2, -hl + 0.02, DARK); // rear vault doors
+      for (let k = 0; k < 6; k++) {
+        const x0 = -w * 0.9 + k * w * 0.3;
+        b.quad([x0, 1.0, -hl - 0.045], [x0 + w * 0.15, 1.0, -hl - 0.045], [x0 + w * 0.15 + 0.35, 2.1, -hl - 0.045], [x0 + 0.35, 2.1, -hl - 0.045], ARMOR_GOLD, [0, 0, -1]);
+      }
+      for (const z of [-2.7, -1.9, -1.1, -0.3]) b.box(-w * 0.8, 2.3, z, w * 0.8, 2.36, z + 0.1, DARK); // roof ribs
+      b.box(-w * 0.8, 0.34, hl + 0.1, w * 0.8, 0.66, hl + 0.3, 0x2b2d31); // bull bar
+      doorZ = [];
+      break;
+    }
     case 'van': {
       b.slab([-w, -hl, w, 0.2 * L], [-w * 0.96, -hl + 0.05, w * 0.96, 0.2 * L], 0.32, 2.05, body);
       b.slab([-w * 0.98, 0.18 * L, w * 0.98, hl], [-w * 0.95, 0.2 * L, w * 0.95, hl - 0.06], 0.32, 1.0, body);
@@ -154,9 +185,13 @@ export function buildCarModel(typeKey, paint) {
     }
   }
   const seamY = t.body === 'van' ? [0.4, 1.0] : [0.4, beltY - 0.02];
+  const armored = t.body === 'armored';
   for (const sx of [-1, 1]) {
     for (const z of doorZ) decal(sx, z - 0.015, z + 0.015, seamY[0], seamY[1], 0x15161a); // door seams
-    for (const sz of [1, -1]) decal(sx, sz * (t.wheelbase / 2) - 0.46, sz * (t.wheelbase / 2) + 0.46, 0.3, 0.73, DARK); // wheel arches
+    for (const sz of [1, -1]) {
+      if (armored) b.quad([sx * (w + 0.016), 0.3, sz * (t.wheelbase / 2) - 0.5], [sx * (w + 0.016), 0.3, sz * (t.wheelbase / 2) + 0.5], [sx * (w + 0.016), 0.76, sz * (t.wheelbase / 2) + 0.5], [sx * (w + 0.016), 0.76, sz * (t.wheelbase / 2) - 0.5], DARK, [sx, 0, 0]);
+      else decal(sx, sz * (t.wheelbase / 2) - 0.46, sz * (t.wheelbase / 2) + 0.46, 0.3, 0.73, DARK); // wheel arches
+    }
   }
   if (typeKey === 'patrol') {
     for (const sx of [-1, 1]) decal(sx, -hl + 0.5, hl - 0.5, 0.42, 0.66, 0x1b3a6b); // navy door stripe
@@ -193,6 +228,17 @@ export function buildCarModel(typeKey, paint) {
     for (const [key, sx, color] of [['red', -1, 0xff2a2a], ['blue', 1, 0x2a6bff]]) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.12, 0.42), new THREE.MeshBasicMaterial({ color }));
       m.position.set(sx * w * 0.28, 1.6, -0.45);
+      chassis.add(m);
+      lights[key] = m;
+    }
+  }
+
+  if (typeKey === 'armored') {
+    // two amber beacons on the vault roof, blinked alternately by the heist controller
+    lights = {};
+    for (const [key, sx] of [['a', -1], ['b', 1]]) {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.3, 8), new THREE.MeshBasicMaterial({ color: 0xffa21a }));
+      m.position.set(sx * w * 0.5, 2.5, -2.35);
       chassis.add(m);
       lights[key] = m;
     }

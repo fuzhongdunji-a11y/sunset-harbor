@@ -112,7 +112,7 @@ export class Environment {
 
   _buildGround() {
     const grass = new THREE.Mesh(new THREE.PlaneGeometry(6000, 3000).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x84bf68 }));
-    grass.position.set(0, 0, WORLD.sandZ - 1500);
+    grass.position.set(0, -0.08, WORLD.sandZ - 1500); // a hair below the road surface: the 6 km plane z-fought the asphalt close to the camera
     grass.receiveShadow = true;
     const sand = new THREE.Mesh(new THREE.PlaneGeometry(6000, WORLD.shoreZ - WORLD.sandZ).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xf0dca8 }));
     sand.position.set(0, 0.0, (WORLD.shoreZ + WORLD.sandZ) / 2);

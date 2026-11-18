@@ -181,10 +181,94 @@ export class Minimap {
       g.fill();
       g.restore();
     }
+    // Armored Shakedown: pulsing gold shield on the truck (dark square once its armor is gone), yellow diamonds on loose briefcases, double ring on the drop-off
+    const am = extras.armored;
+    if (am) {
+      const badge = (x, z, draw) => {
+        g.save();
+        g.translate(u(x), v(z));
+        g.rotate(-camYaw); // keep icons upright on the rotating map
+        g.scale(inv, inv);
+        g.lineJoin = 'round';
+        draw();
+        g.restore();
+      };
+      const outline = (fill, widthOuter = 5) => {
+        g.strokeStyle = '#12151c';
+        g.lineWidth = widthOuter;
+        g.stroke();
+        g.strokeStyle = '#ffffff';
+        g.lineWidth = widthOuter - 3;
+        g.stroke();
+        g.fillStyle = fill;
+        g.fill();
+      };
+      if (am.drop) {
+        badge(am.drop.x, am.drop.z, () => {
+          const pr = 1 + Math.sin(now * 4) * 0.08;
+          g.scale(pr, pr);
+          g.beginPath();
+          g.arc(0, 0, 13, 0, Math.PI * 2);
+          g.strokeStyle = '#12151c';
+          g.lineWidth = 7;
+          g.stroke();
+          g.strokeStyle = '#ffc21a';
+          g.lineWidth = 4;
+          g.stroke();
+          g.beginPath();
+          g.arc(0, 0, 6, 0, Math.PI * 2);
+          outline('#ffc21a', 6);
+        });
+      }
+      for (const c of am.cases) {
+        badge(c.x, c.z, () => {
+          const pr = 1 + Math.sin(now * 7) * 0.12;
+          g.scale(pr, pr);
+          g.beginPath();
+          g.moveTo(0, -8);
+          g.lineTo(6.5, 0);
+          g.lineTo(0, 8);
+          g.lineTo(-6.5, 0);
+          g.closePath();
+          outline('#ffe83a');
+        });
+      }
+      if (am.wreck) {
+        badge(am.wreck.x, am.wreck.z, () => {
+          g.beginPath();
+          g.rect(-5, -7, 10, 14);
+          outline('#8a6a1c');
+        });
+      }
+      if (am.truck) {
+        badge(am.truck.x, am.truck.z, () => {
+          const pr = 1.15 + Math.sin(now * 6) * 0.14;
+          g.scale(pr, pr);
+          g.beginPath();
+          g.moveTo(-8, -8);
+          g.lineTo(8, -8);
+          g.lineTo(8, 1);
+          g.lineTo(0, 10);
+          g.lineTo(-8, 1);
+          g.closePath();
+          outline('#ffc21a', 6);
+          g.beginPath();
+          g.moveTo(-3.5, -3.5);
+          g.lineTo(3.5, -3.5);
+          g.lineTo(3.5, 0.5);
+          g.lineTo(0, 5);
+          g.lineTo(-3.5, 0.5);
+          g.closePath();
+          g.fillStyle = '#1b2a4e';
+          g.fill();
+        });
+      }
+    }
     g.restore();
 
     // mission marker (clamped to the rim when it is out of range)
-    const quarryOnMap = ic && ic.dist * S * zoom <= R - 14; // its triangle already marks the target, so no second pin
+    const amOnMap = am && am.target && Math.hypot(am.target.x - player.px, am.target.z - player.pz) * S * zoom <= R - 14;
+    const quarryOnMap = (ic && ic.dist * S * zoom <= R - 14) || amOnMap; // their own icons already mark the target, so no second pin
     if (missionPos && !quarryOnMap) {
       const dx = (u(missionPos.x) - u(player.px)) * zoom;
       const dy = (v(missionPos.z) - v(player.pz)) * zoom;
