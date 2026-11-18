@@ -20,7 +20,7 @@ Open `game/index.html` through any static server (`node serve.ts` serves it on h
 | Mouse | look (click the page to capture the pointer) |
 | Shift | sprint |
 | Space | jump / handbrake |
-| F | get in or out of a car |
+| F | get in or out of a car or boat |
 | M | mute / unmute sound |
 | Esc or P | pause (the game saves) |
 
@@ -39,6 +39,7 @@ Take your Marlin and follow the mission marker. Steal other cars, but not in fro
 - **Save / load**: progress is stored in `localStorage`; damaged data is ignored.
 - **Signal Intercept**: tail a black syndicate sedan 15-45 m behind to fill DATA UPLOAD without filling SUSPICION, survive its evasive moves at 50% and 80%, then break away past 80 m. Payout is $1,400 + $15 per second left + a $400 ghost bonus.
 - **Costa Sun-Crests**: 50 hidden golden medallions (25 city, 10 beach, 15 harbor). $250 each, bonuses and perks at 10/20/30/40/50, saved with your game.
+- **Harbor Contraband Run**: three wooden marina piers each moor a Sunrunner 28 speedboat. Board with F, plane at up to 66 kts, bank into turns and hop crests with Space (Hydro-Trim Boost, every 6 s). Step into the cyan ring on Pier 1 to start the Contraband Drop: grab four crates under blinking buoys in the bay, pick up Harbor Patrol Interceptors from crate 2, then ease into Smuggler's Cove Slip under 15 kts. Pays $3,200 + $25 per second left + $650 for a clean hull. Stars 2+ in deep water bring the Harbor Patrol anyway, and sitting still beside them gets you busted. Beaches never let a hull onto the street.
 - **Sound**: engine, tyre roar, siren, crashes, doors, mission, busted and wasted stings, waves and birds, all synthesized with WebAudio.
 - **HUD**: mission panel, cash, stars, speedometer, car condition and a rotating circular minimap.
 
@@ -52,6 +53,7 @@ All game code lives in `game/src/`, one responsibility per file.
 | World data | `config.js`, `rng.js`, `cityLayout.js`, `roadNet.js` |
 | Rendering | `meshBuilder.js`, `textures.js`, `cityBuilder.js`, `scenery.js`, `environment.js`, `cameraRig.js` |
 | Simulation | `world.js`, `collision.js`, `vehicles.js`, `vehicleModels.js`, `roadDriver.js`, `traffic.js`, `pedestrians.js`, `characters.js`, `player.js` |
+| Boats | `boatSystem.js` (physics, berths, wake), `boatModels.js`, `shoreline.js`, `harborPatrol.js`, `contrabandMission.js`, `boatAudio.js` |
 | Gameplay | `wanted.js`, `police.js`, `missions.js`, `save.js` |
 | Interface | `hud.js`, `minimap.js`, `audio.js` |
 

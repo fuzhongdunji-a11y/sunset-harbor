@@ -182,3 +182,27 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #ar-total { margin-top: 8px; padding-top: 6px; border-top: 2px solid rgba(255, 255, 255, 0.3); display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; font-style: italic; color: #8cf5b0; opacity: 0; animation: lineIn 0.4s ease-out 1.7s forwards; }
 .tagline.sub { font-size: 15px; margin-top: -10px; color: #ffe9b8; }
 .pause-crests { color: #ffd23f; font-weight: 800; letter-spacing: 1px; }
+/* Harbor Contraband Run: boat gauges (KTS, HULL, TRIM pip), top-centre job tracker, floating Pier 1 label */
+#hull-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #8fe9ff; }
+#hp-track.boat #hp-bar { background: linear-gradient(90deg, #39d5ff, #8ff3ff); }
+#hp-track.boat.warn #hp-bar { background: linear-gradient(90deg, #ff9a1f, #ffc84a); }
+#hp-track.boat.crit #hp-bar { background: linear-gradient(90deg, #d4122a, #ff4a5a); animation: pulse 0.3s infinite alternate; }
+#trim { margin-top: 4px; font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #7d8896; }
+#trim i { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 50%; background: #3a4350; }
+#trim b { margin-left: 6px; padding: 1px 8px; border-radius: 4px; background: #3a4350; color: #aeb8c4; text-shadow: none; }
+#trim.ready { color: #8ff3ff; }
+#trim.ready i { background: #39d5ff; box-shadow: 0 0 10px #39d5ff; }
+#trim.ready b { background: #39d5ff; color: #06202a; }
+#cbd { position: absolute; left: 50%; top: 14px; width: 330px; transform: translateX(-50%); text-align: center; padding: 8px 10px 6px; background: rgba(8, 20, 30, 0.72); border-top: 4px solid #39d5ff; border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#cbd-head { font-size: 14px; font-weight: 900; letter-spacing: 4px; color: #8ff3ff; }
+#cbd-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px; }
+#cbd-pips i { display: inline-block; width: 22px; height: 14px; margin: 0 3px; border: 2px solid #39d5ff; border-radius: 3px; background: rgba(0, 0, 0, 0.4); transform: skewX(-14deg); }
+#cbd-pips i.on { background: #39d5ff; box-shadow: 0 0 10px rgba(57, 213, 255, 0.9); }
+#cbd-count { font-size: 18px; font-weight: 900; font-style: italic; color: #fff; }
+#cbd-time { font-size: 34px; font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums; letter-spacing: 2px; color: #fff; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.7); }
+#cbd-time.late { color: #ff4a3c; animation: pulse 0.25s infinite alternate; }
+#cbd-bonus { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #62e08a; }
+#cbd-bonus.lost { color: #7d8896; text-decoration: line-through; }
+#cbd-warn { min-height: 0; font-size: 16px; font-weight: 900; letter-spacing: 2px; color: #ffb02e; }
+#cbd-warn:not(:empty) { margin-top: 4px; animation: pulse 0.35s infinite alternate; }
+#cbd-label { position: absolute; padding: 3px 12px; font-size: 15px; font-weight: 900; letter-spacing: 3px; color: #06202a; background: #5ee8ff; border-radius: 4px; transform: translate(-50%, -100%); box-shadow: 0 0 14px rgba(94, 232, 255, 0.8); pointer-events: none; }

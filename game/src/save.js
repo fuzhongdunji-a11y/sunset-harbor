@@ -36,8 +36,10 @@ export function loadSave() {
 export function writeSave(world) {
   try {
     const p = world.player;
-    const car = p.vehicle ? { type: p.vehicle.typeKey, paint: p.vehicle.paint } : null;
-    const data = { cash: world.cash, completed: world.missions.completed, x: p.px, z: p.pz, h: p.facing, car, crests: world.crests.ids(), vouch: world.wanted.vouch, savedAt: Date.now() };
+    const boat = !!p.vehicle?.isBoat; // a boat is never saved: the player comes back on Pier 1's deck
+    const car = p.vehicle && !boat ? { type: p.vehicle.typeKey, paint: p.vehicle.paint } : null;
+    const pier = world.layout.marina.piers[0];
+    const data = { cash: world.cash, completed: world.missions.completed, x: boat ? pier.ring.x : p.px, z: boat ? pier.z0 + 8 : p.pz, h: boat ? 0 : p.facing, car, crests: world.crests.ids(), vouch: world.wanted.vouch, savedAt: Date.now() };
     localStorage.setItem(KEY, JSON.stringify(data));
     return true;
   } catch {

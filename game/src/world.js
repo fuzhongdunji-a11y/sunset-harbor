@@ -19,6 +19,9 @@ import { Wanted } from './wanted.js';
 import { SignalIntercept } from './signalIntercept.js';
 import { ArmoredHeist } from './armoredTruck.js';
 import { Crests } from './crests.js';
+import { BoatSystem } from './boatSystem.js';
+import { HarborPatrol } from './harborPatrol.js';
+import { ContrabandRun } from './contrabandMission.js';
 import { AmbientDirector } from './ambient/AmbientDirector.js';
 import { TUNER_DEF } from './ambient/TunerBreakdownEvent.js';
 import { HAULER_DEF } from './ambient/StuntHaulerEvent.js';
@@ -84,6 +87,9 @@ export class World {
     this.police = new Police(this.vehicles, this.net, rng, this.collision);
     this.intercept = new SignalIntercept(this, scene, rng);
     this.armored = new ArmoredHeist(this, scene, rng);
+    this.boats = new BoatSystem(this, scene, seed); // marina piers' Sunrunners + physics
+    this.patrol = new HarborPatrol(this, this.boats); // Harbor Patrol Interceptors + water arrest
+    this.contraband = new ContrabandRun(this, scene); // Pier 1 job
     this.ambient = new AmbientDirector(this, scene, makeRng(seed * 7919 + 5));
     this.ambient.register('TUNER', TUNER_DEF);
     this.ambient.register('HAULER', HAULER_DEF);
@@ -202,6 +208,7 @@ export class World {
     this.intercept.drive(dt, ctx);
     this.armored.drive(dt, ctx);
     this.ambient.drive(dt, ctx);
+    this.patrol.drive(dt);
     const camFwd = { x: Math.sin(this.rig.yaw), z: Math.cos(this.rig.yaw) };
     const arrest = this.fx ? null : this.police.update(dt, ctx, p, this.wanted, camFwd);
     if (arrest === 'busted') this._startFx('busted');
@@ -211,6 +218,7 @@ export class World {
     for (let i = 0; i < steps; i++) {
       if (p.inCar) p.updateDriving(input);
       this.vehicles.update(h);
+      this.boats.step(h);
       this.ambient.step(h); // ramp surface and launch checks run every sub-step: a car covers metres per frame
       if (!p.inCar) p.updateFoot(h, input, this.rig.yaw, this.collision, this.vehicles, this.layout.groundHeightAt);
     }
@@ -240,7 +248,11 @@ export class World {
     }
     this._contactShadows();
     this._playerCrimesAndDamage(dt);
-    this.wanted.update(dt, this.police.nearest);
+    this.boats.update(dt);
+    const waterArrest = this.fx ? null : this.patrol.update(dt);
+    if (waterArrest === 'busted') this._startFx('busted');
+    this.wanted.update(dt, Math.min(this.police.nearest, this.patrol.nearest));
+    this.contraband.update(dt);
 
     if (!this.fx) {
       const done = this.missions.update(dt);
@@ -265,9 +277,12 @@ export class World {
     this.ambient.update(this.realDt ?? dt, this._input);
     this.prompt = '';
     this.promptProgress = -1;
+    if (p.inCar && p.vehicle.isBoat && !this.fx && Math.abs(p.vehicle.speedF) <= 12 && this.boats.dismountSpot(p.vehicle)) this.prompt = '[F] Step onto dry land';
     if (!p.inCar && !this.fx) {
       const car = this._enterCandidate();
+      const boat = this.boats.candidate(p.x, p.z);
       if (car) this.prompt = `[F] ${this._enterVerb(car)} the ${car.type.name}`;
+      if (boat) this.prompt = `[F] Board ${boat.type.name}`;
       const ev = this.ambient.active;
       if (ev?.prompt) {
         // the ambient event's own prompt wins; the car it belongs to can still be taken with F
@@ -313,6 +328,7 @@ export class World {
     const p = this.player;
     if (this.fx) return;
     const pv = p.vehicle;
+    if (pv?.isBoat) return; // hull damage, sinking and the water rescue are the boat system's job
     if (pv) {
       const other = pv.contact;
       if (other && pv.impact > 4 && other.kind === 'traffic') this.wanted.commit('hitCar');
@@ -351,9 +367,12 @@ export class World {
     if (p.inCar) {
       const v = p.vehicle;
       this.placeOnFoot(v);
-      this.vehicles.remove(v); // wrecked or impounded
+      if (v.isBoat) this.boats.release(v); // the boat goes back to its berth
+      else this.vehicles.remove(v); // wrecked or impounded
     }
     this.police.clearAll();
+    this.patrol.clearAll();
+    this.contraband.onPlayerDown();
     this.wanted.clear();
     const s = this.layout.start;
     p.x = s.x;
@@ -377,9 +396,15 @@ export class World {
   _toggleVehicle() {
     const p = this.player;
     if (p.inCar) {
+      if (p.vehicle.isBoat) return this.boats.dismount(p.vehicle);
       if (Math.abs(p.vehicle.speedF) > 7) return this.notify('Slow down to get out', 'warn');
       if (!p.exit(this.collision, this.vehicles)) this.notify('No room to get out', 'warn');
       else this.emit('door');
+      return undefined;
+    }
+    const boat = this.boats.candidate(p.x, p.z);
+    if (boat) {
+      this.boats.board(boat);
       return undefined;
     }
     const car = this._enterCandidate();

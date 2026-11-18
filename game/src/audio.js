@@ -1,6 +1,7 @@
 // audio: WebAudio synthesis only (no sample files). Engine, police siren, collisions, jingles, door and ambience (waves, birds), plus mute.
 // The AudioContext is created by start(), which the title screen calls from the player's click / key press (browser autoplay rules).
 import { AmbientAudio } from './ambient/AmbientAudio.js';
+import { BoatAudio } from './boatAudio.js';
 
 const MUTE_KEY = 'sunsetHarbor.mute';
 
@@ -20,6 +21,7 @@ export class GameAudio {
     this.blipT = 0; // Signal Intercept upload blips
     this.buzzT = 0; // suspicion buzzer / signal-loss beeps
     this.ambient = new AmbientAudio(this); // ambient city events (Roadside Tuner)
+    this.boat = new BoatAudio(this); // outboards, wave slam, sonar chirp, patrol hailer
   }
 
   get ready() {
@@ -165,8 +167,8 @@ export class GameAudio {
     const p = world.player;
     const v = p.vehicle;
 
-    // engine: speed -> rpm with a few gears so it climbs and drops
-    if (v && !world.fx) {
+    // engine: speed -> rpm with a few gears so it climbs and drops (boats have their own outboard synth)
+    if (v && !v.isBoat && !world.fx) {
       const sp = Math.abs(v.speedF);
       const top = v.type.maxSpeed;
       const gears = 5;
@@ -234,6 +236,7 @@ export class GameAudio {
     this._intercept(dt, world.intercept, t);
     this._alarm(dt, world.armored, p, t);
     this.ambient.update(dt, world.ambient.active, t);
+    this.boat.update(dt, world, t);
     for (const e of events) this._event(e);
   }
 
@@ -320,6 +323,7 @@ export class GameAudio {
 
   _event(type) {
     if (type.startsWith('amb')) this.ambient.event(type);
+    else if (type === 'boatSlam' || type === 'cratePing' || type === 'patrolHorn' || type === 'boatBoost' || type === 'cbdStart') this.boat.event(type);
     else if (type === 'icptStart') this._jingle([440, 554, 659], 0.08, 'sine', 0.1);
     else if (type === 'icptEvade') this._tone(300, this.ctx.currentTime, 0.4, 'sawtooth', 0.09, 900);
     else if (type === 'icptDone') this._jingle([659, 880, 1175, 1568], 0.07, 'triangle', 0.14);

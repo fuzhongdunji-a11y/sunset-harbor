@@ -65,6 +65,16 @@ export class Wanted {
     if (this.stars < n) this.setHeat(STAR_HEAT[n]);
   }
 
+  // Drop the level by exactly one star (the Contraband Drop's smuggler decoy signal) and restart the evade timer.
+  dropStar() {
+    if (this.stars <= 0) return;
+    const n = this.stars - 1;
+    this.heat = n === 0 ? 0 : STAR_HEAT[n];
+    this.stars = n;
+    this.evade = 0;
+    if (n === 0) this.peak = 0;
+  }
+
   setHeat(h) {
     const before = this.stars;
     this.heat = h;

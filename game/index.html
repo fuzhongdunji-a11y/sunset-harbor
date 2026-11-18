@@ -32,9 +32,16 @@
       <div id="ams-clock"><span id="ams-time">2:45</span><em id="ams-plus">+0:30</em></div>
       <div id="ams-warn"></div>
     </div>
+    <div id="cbd" class="hidden">
+      <div id="cbd-head">CONTRABAND DROP</div>
+      <div id="cbd-row"><span id="cbd-pips"><i></i><i></i><i></i><i></i></span><b id="cbd-count">0/4</b><span id="cbd-time">2:00</span></div>
+      <div id="cbd-bonus">+$650 CLEAN HULL</div>
+      <div id="cbd-warn"></div>
+    </div>
+    <div id="cbd-label" class="hidden">CONTRABAND DROP</div>
     <div id="ams-pop"></div>
     <div id="ams-result" class="hidden">
-      <div class="ar-head">SHAKEDOWN COMPLETE</div>
+      <div class="ar-head" id="ar-head">SHAKEDOWN COMPLETE</div>
       <div id="ar-lines"></div>
       <div id="ar-total"></div>
     </div>
@@ -56,9 +63,11 @@
 
     <div id="speedo" class="hidden">
       <div id="drift" class="hidden">DRIFT</div>
-      <div class="speed-line"><span id="speed-val">0</span><span class="unit">km/h</span></div>
+      <div class="speed-line"><span id="speed-val">0</span><span class="unit" id="speed-unit">km/h</span></div>
       <div id="speed-track"><div id="speed-bar"></div></div>
+      <div id="hull-row" class="hidden"><span>HULL</span><b id="hull-pct">100%</b></div>
       <div id="hp-track" title="Car condition"><div id="hp-bar"></div></div>
+      <div id="trim" class="hidden"><i></i>TRIM BOOST <b>SPACE</b></div>
       <div id="car-name"></div>
     </div>
 
@@ -81,7 +90,7 @@
       <div class="kicker">COSTA SERENA &middot; OPEN-CITY CRIME ACTION</div>
       <h1>SUNSET<br>HARBOR</h1>
       <p class="tagline">Sun, palms and trouble. Steal a ride, run the coast road, make a name in a harbor town that never sits still.</p>
-      <p class="tagline sub">New: ram the Armored Shakedown truck for its gold, tail the syndicate sedan in Signal Intercept, and hunt 50 hidden Sun-Crests.</p>
+      <p class="tagline sub">New: ram the Armored Shakedown truck for its gold, tail the syndicate sedan in Signal Intercept, run the Contraband Drop by speedboat from the marina piers, and hunt 50 hidden Sun-Crests.</p>
       <div class="buttons">
         <button id="continue-btn" type="button" class="hidden">CONTINUE</button>
         <button id="start-btn" type="button">NEW GAME</button>
@@ -92,7 +101,7 @@
         <div><b>MOUSE</b><span>look (click to capture)</span></div>
         <div><b>SHIFT</b><span>sprint</span></div>
         <div><b>SPACE</b><span>jump / handbrake</span></div>
-        <div><b>F</b><span>get in / out of a car</span></div>
+        <div><b>F</b><span>enter / leave car or boat</span></div>
         <div><b>ESC</b><span>pause</span></div>
         <div><b>M</b><span class="mute-state">sound on</span></div>
         <div><b>ENTER</b><span>start</span></div>
@@ -107,7 +116,7 @@
       <p id="pause-crests" class="pause-crests"></p>
       <div class="controls">
         <div><b>W A S D</b><span>move / drive</span></div>
-        <div><b>F</b><span>get in / out of a car</span></div>
+        <div><b>F</b><span>enter / leave car or boat</span></div>
         <div><b>SPACE</b><span>jump / handbrake</span></div>
         <div><b>SHIFT</b><span>sprint</span></div>
         <div><b>M</b><span class="mute-state">sound on</span></div>

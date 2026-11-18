@@ -73,14 +73,14 @@ export class CameraRig {
         this.idle += dt;
         if (this.idle > 1.4) {
           this.yawOffset *= Math.exp(-2.5 * dt);
-          this.pitch += (0.2 - this.pitch) * Math.min(1, 2 * dt);
+          this.pitch += ((v.isBoat ? 0.3 : 0.2) - this.pitch) * Math.min(1, 2 * dt);
         }
       }
       this.yaw = this.carYaw + this.yawOffset;
-      dist = 5.6 + Math.min(speed, 40) * 0.05;
-      focusY = 1.3;
+      dist = v.isBoat ? 11.5 + Math.min(speed, 40) * 0.03 : 5.6 + Math.min(speed, 40) * 0.05; // a boat needs more room: long hull, wide wake
+      focusY = v.isBoat ? 1.5 : 1.3;
       pivot = new THREE.Vector3(v.x + Math.sin(v.h) * 3, v.y + focusY, v.z + Math.cos(v.h) * 3);
-      fovTarget = 62 + 17 * (1 - Math.exp(-speed / 24)); // eases out: the first burst of speed widens the view most
+      fovTarget = v.isBoat ? 62 + 9 * Math.min(1, speed / 34) + (v.boostT > 0 ? 4 : 0) : 62 + 17 * (1 - Math.exp(-speed / 24)); // eases out: the first burst of speed widens the view most; boats kick +9 deg at full plane
       // tailing a target: slide the pivot toward it so it stays on screen, and pull back / widen when it is close so both cars fit
       if (this.aid) this.lastAid = this.aid;
       this.aidW += ((this.aid ? 1 : 0) - this.aidW) * Math.min(1, 2.5 * dt);

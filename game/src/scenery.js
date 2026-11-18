@@ -26,7 +26,11 @@ export function buildScenery(layout) {
   for (const u of layout.umbrellas) addUmbrella(b, u);
   addLifeguardTower(b, 40, 322);
   addLifeguardTower(b, -210, 318);
-  for (const d of layout.docks) addDock(b, d);
+  for (const d of layout.docks) {
+    if (d.marina) addMarinaPier(b, d);
+    else addDock(b, d);
+  }
+  addSmugglersSlip(b, layout.marina.slip);
   addLighthouse(b, -110, 419, layout.docks[0].top);
   for (const c of layout.containers) addContainerStack(b, c, layout.docks[1].top);
   addCrane(b, layout);
@@ -117,6 +121,35 @@ function addDock(b, d) {
   for (let t = 0; t < 6; t++) { // bollards
     const z = d.z0 + 5 + t * ((d.z1 - d.z0 - 8) / 5);
     for (const x of [d.x0 + 0.4, d.x1 - 0.4]) b.box(x - 0.18, d.top, z - 0.18, x + 0.18, d.top + 0.45, z + 0.18, 0x2a2d33);
+  }
+}
+
+// Weathered cedar marina pier: plank deck, dark pilings down into the water, white cleats and a bollard where the boat is moored.
+function addMarinaPier(b, d) {
+  const cedar = 0x7a5638, plank = 0xa5784c, piling = 0x3d2b1f;
+  b.box(d.x0, d.top - 0.35, d.z0, d.x1, d.top, d.z1, { side: cedar, top: plank });
+  for (let z = d.z0 + 1.5; z < d.z1; z += 1.5) b.box(d.x0 + 0.05, d.top + 0.005, z, d.x1 - 0.05, d.top + 0.02, z + 0.07, 0x5d4129); // plank seams
+  for (let z = d.z0 + 3; z < d.z1; z += 6) for (const x of [d.x0 + 0.2, d.x1 - 0.2]) b.box(x - 0.18, -1.4, z - 0.18, x + 0.18, d.top + 0.55, z + 0.18, piling);
+  for (let z = d.z0 + 6; z < d.z1 - 3; z += 12) b.box(d.x1 - 0.5, d.top, z - 0.15, d.x1 - 0.2, d.top + 0.3, z + 0.15, 0xf4f1ea); // cleats
+  b.box(d.x0 + 0.1, d.top, d.z1 - 0.5, d.x1 - 0.1, d.top + 0.25, d.z1, 0x5d4129); // end rail
+  const m = d.moor;
+  b.box(d.x1 - 0.4, d.top, m.z - 0.2, d.x1 - 0.05, d.top + 0.5, m.z + 0.2, 0x2a2d33); // mooring bollard
+  if (d.id === 0) {
+    b.box(d.x0 + 0.1, d.top, d.ring.z - 0.9, d.x0 + 0.5, d.top + 0.5, d.ring.z - 0.5, 0x2a2d33); // Pier 1: the contraband contact's bollard
+    b.box(d.x0 - 0.05, d.top, d.z0 + 6, d.x0 + 0.05, d.top + 2.4, d.z0 + 6.1, 0xd9392b); // lantern post at the root
+    b.box(d.x0 - 0.2, d.top + 2.4, d.z0 + 5.8, d.x0 + 0.3, d.top + 2.9, d.z0 + 6.3, 0xfff0b0);
+  }
+}
+
+// Smuggler's Cove Slip: two short finger piers framing the berth, with red-white marker posts at the mouth.
+function addSmugglersSlip(b, s) {
+  const top = 0.45;
+  for (const sx of [-1, 1]) {
+    const x = s.x + sx * 7.5;
+    b.box(x - 1, top - 0.35, 346, x + 1, top, 366, { side: 0x7a5638, top: 0xa5784c });
+    for (const z of [348, 357, 365]) b.box(x - 0.15, -1.4, z - 0.15, x + 0.15, top + 0.5, z + 0.15, 0x3d2b1f);
+    b.box(x - 0.12, top, 366.6, x + 0.12, top + 2.6, 366.9, 0xf4f1ea);
+    b.box(x - 0.18, top + 1.6, 366.5, x + 0.18, top + 2.6, 367.0, 0xd9392b);
   }
 }
 

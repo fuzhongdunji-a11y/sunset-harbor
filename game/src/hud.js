@@ -1,4 +1,5 @@
 // hud: DOM overlay (speed, cash, wanted stars, mission panel, prompts, toasts). Only writes to the DOM when a value changes.
+import * as THREE from '../vendor/three.module.min.js';
 import { EVADE_TIME } from './wanted.js';
 import { CREST_TOTAL, QUOTA, GROUP_NAME, MILESTONES, nextMilestone } from './crests.js';
 
@@ -22,8 +23,12 @@ export class Hud {
       pauseCrests: $('pause-crests'), vouch: $('vouch'), promptBar: $('prompt-bar'), ambientCap: $('ambient-cap'),
       ams: $('ams'), amsPhase: $('ams-phase'), amsArmor: $('ams-armor'), amsFill: $('ams-fill'), amsPct: $('ams-pct'),
       amsClock: $('ams-clock'), amsTime: $('ams-time'), amsPlus: $('ams-plus'), amsWarn: $('ams-warn'), amsPop: $('ams-pop'),
-      amsResult: $('ams-result'), arLines: $('ar-lines'), arTotal: $('ar-total'),
+      amsResult: $('ams-result'), arLines: $('ar-lines'), arTotal: $('ar-total'), arHead: $('ar-head'),
+      speedUnit: $('speed-unit'), hullRow: $('hull-row'), hullPct: $('hull-pct'), hpTrack: $('hp-track'), trim: $('trim'),
+      cbd: $('cbd'), cbdPips: [...document.querySelectorAll('#cbd-pips i')], cbdCount: $('cbd-count'), cbdTime: $('cbd-time'),
+      cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
     };
+    this.tmp = new THREE.Vector3();
     this.crestTimer = 0;
     this.resultTimer = 0;
     this.lastHits = 0;
@@ -138,6 +143,7 @@ export class Hud {
         row.lastChild.textContent = `+$${amount.toLocaleString('en-US')}`;
         e.arLines.appendChild(row);
       });
+      e.arHead.textContent = res.title ?? 'SHAKEDOWN COMPLETE';
       e.arTotal.innerHTML = '<span>TOTAL</span><span></span>';
       e.arTotal.lastChild.textContent = `$${res.total.toLocaleString('en-US')}`;
       e.arTotal.style.animation = 'none';
@@ -170,6 +176,39 @@ export class Hud {
     this.lastBonus = v.bonusT;
     this._set('amwarn', e.amsWarn, v.warn);
     e.amsWarn.style.color = v.locked ? '#ff4a3c' : v.phase === 'deliver' ? '#ffd23f' : '#ff8a70';
+  }
+
+  // Harbor Contraband Run: crate pips, MM:SS clock (red under 20 s), the clean-hull bonus preview, an abandon-boat countdown, and the floating Pier 1 label.
+  _contraband(world) {
+    const e = this.el;
+    const v = world.contraband.view;
+    e.cbd.classList.toggle('hidden', !v.active);
+    e.mission.classList.toggle('hidden', v.active); // the job has its own tracker
+    const lp = world.contraband.labelPos;
+    let show = false;
+    if (lp && this.root && !this.root.classList.contains('hidden')) {
+      const cam = world.camera;
+      this.tmp.set(lp.x, lp.y, lp.z);
+      const d = this.tmp.distanceTo(cam.position);
+      this.tmp.project(cam);
+      if (d < 90 && this.tmp.z < 1) {
+        show = true;
+        e.cbdLabel.style.left = `${((this.tmp.x * 0.5 + 0.5) * 100).toFixed(1)}%`;
+        e.cbdLabel.style.top = `${((-this.tmp.y * 0.5 + 0.5) * 100).toFixed(1)}%`;
+      }
+    }
+    e.cbdLabel.classList.toggle('hidden', !show);
+    if (!v.active) return;
+    e.cbdPips.forEach((pip, i) => pip.classList.toggle('on', i < v.collected));
+    this._set('cbcount', e.cbdCount, `${v.collected}/${v.total}`);
+    const left = Math.max(0, v.timeLeft);
+    this._set('cbtime', e.cbdTime, `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(Math.floor(left % 60)).padStart(2, '0')}`);
+    e.cbdTime.classList.toggle('late', left < 20);
+    e.cbdBonus.classList.toggle('lost', !v.clean);
+    let warn = '';
+    if (v.abandon !== null) warn = `RETURN TO YOUR BOAT  ${Math.ceil(v.abandon)}s`;
+    else if (v.brief) warn = 'FIND THE BUOYS';
+    this._set('cbwarn', e.cbdWarn, warn);
   }
 
   // Sun-Crests: running counter, the 4 s pickup card (count, district tally, bar to the next milestone) and the pause-screen total.
@@ -263,7 +302,7 @@ export class Hud {
     this._ambient(world, dt);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);
-    const bust = world.police.bustProgress;
+    const bust = Math.max(world.police.bustProgress, world.patrol.bustProgress);
     e.bust.classList.toggle('hidden', bust <= 0.01);
     if (bust > 0.01) e.bustBar.style.width = `${Math.round(bust * 100)}%`;
     const fx = world.fx ? world.fx.kind : '';
@@ -282,14 +321,44 @@ export class Hud {
     e.mTime.classList.toggle('late', left !== null && left < 20);
     this._set('mr', e.mReward, `Reward ${m.rewardText ?? `$${m.reward}`}`);
     const inCar = p.inCar;
-    if (this.cache.inCar !== inCar) {
+    const boat = inCar && !!p.vehicle.isBoat;
+    if (this.cache.inCar !== inCar || this.cache.boat !== boat) {
       this.cache.inCar = inCar;
+      this.cache.boat = boat;
       e.speedo.classList.toggle('hidden', !inCar);
-      e.hints.textContent = inCar
-        ? 'W/S gas & brake   A/D steer   Space handbrake   F get out   M sound   Esc pause'
-        : 'WASD move   Shift sprint   Space jump   F drive nearby car   M sound   Esc pause';
+      e.hints.textContent = boat
+        ? 'W/S throttle   A/D steer   Space trim boost   F step onto dock or shore   M sound   Esc pause'
+        : inCar
+          ? 'W/S gas & brake   A/D steer   Space handbrake   F get out   M sound   Esc pause'
+          : 'WASD move   Shift sprint   Space jump   F drive nearby car or board a boat   M sound   Esc pause';
+      e.speedUnit.textContent = boat ? 'KTS' : 'km/h';
+      e.hullRow.classList.toggle('hidden', !boat);
+      e.trim.classList.toggle('hidden', !boat);
+      e.hpTrack.classList.toggle('boat', boat);
+      this.cache.sfx = undefined;
     }
-    if (inCar) {
+    this._contraband(world);
+    if (boat) {
+      const b = p.vehicle;
+      this._set('speed', e.speed, String(Math.round(b.knots)));
+      this._set('car', e.carName, b.type.name);
+      const pct = Math.round(b.health);
+      e.hpBar.style.width = `${pct}%`;
+      this._set('hullpct', e.hullPct, `${pct}%`);
+      e.hpTrack.classList.toggle('warn', pct < 35 && pct >= 15);
+      e.hpTrack.classList.toggle('crit', pct < 15);
+      const ratio = Math.min(1, Math.abs(b.speedF) / 42.5);
+      e.speedBar.style.width = `${(ratio * 100).toFixed(0)}%`;
+      e.speedBar.classList.toggle('redline', b.boostT > 0);
+      e.trim.classList.toggle('ready', b.boostReady);
+      e.drift.classList.add('hidden');
+      const fx = Math.max(0, Math.min(0.55, (Math.abs(b.speedF) / 34 - 0.78) * 2.4)) * (b.boostT > 0 ? 1 : 0.6);
+      const q = Math.round(fx * 20) / 20;
+      if (this.cache.sfx !== q) {
+        this.cache.sfx = q;
+        e.speedfx.style.opacity = String(q);
+      }
+    } else if (inCar) {
       const kmh = Math.round(p.vehicle.speedKmh);
       this._set('speed', e.speed, String(kmh));
       this._set('car', e.carName, p.vehicle.type.name);

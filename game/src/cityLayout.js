@@ -9,7 +9,7 @@ const ACCENTS = [0xfff1d0, 0xe9806e, 0x2e86ab, 0xf2a541, 0x17a398, 0xf4f1ea];
 const AWNINGS = [[0xe4572e, 0xf4f1ea], [0x17a398, 0xf4f1ea], [0x2e86ab, 0xf4f1ea], [0xf2a541, 0xf4f1ea], [0xc1366b, 0xf4f1ea], [0x3d8f4f, 0xf4f1ea]];
 const PARK_BLOCKS = new Set(['1,1', '6,2', '2,4', '5,5', '4,1']);
 
-export const DISTRICTS = { downtown: 'Downtown Costa', old: 'Old Quarter', palmera: 'Palmera Heights', marina: 'Marina Row', beach: 'Serena Beach', docks: 'Harbor Docks', pier: 'Lantern Pier' };
+export const DISTRICTS = { downtown: 'Downtown Costa', old: 'Old Quarter', palmera: 'Palmera Heights', marina: 'Marina Row', beach: 'Serena Beach', docks: 'Harbor Docks', pier: 'Lantern Pier', marinaPier: 'Costa Marina Pier' };
 
 export function generateCity(seed = 1) {
   const rng = makeRng(seed * 7919 + 13);
@@ -24,6 +24,15 @@ export function generateCity(seed = 1) {
     { name: DISTRICTS.pier, x0: -114, z0: 335, x1: -106, z1: 425, top: 0.45 },
     { name: DISTRICTS.docks, x0: 100, z0: 335, x1: 262, z1: 402, top: 0.45 },
   ];
+  // Three wooden marina piers on the beach (boatSystem.js moors one Sunrunner beside each; Pier 1 carries the Contraband Drop ring).
+  const marina = { piers: [], slip: { x: -340, z: 372 } };
+  for (const [id, cx] of [[0, -20], [1, 38], [2, 76]]) {
+    const d = { name: DISTRICTS.marinaPier, marina: true, id, x0: cx - 2.2, z0: 336, x1: cx + 2.2, z1: 390, top: 0.45 };
+    d.moor = { x: d.x1 + 1.7, z: 368, h: 0 }; // bow to the sea
+    d.ring = { x: cx, z: 372 };
+    marina.piers.push(d);
+    docks.push(d);
+  }
   const bounds = [
     { x0: -337, z0: -297, x1: 337, z1: 341 },
     ...docks.map((d) => ({ x0: d.x0, z0: d.z0, x1: d.x1, z1: d.z1 })),
@@ -238,7 +247,7 @@ export function generateCity(seed = 1) {
   }
 
   return {
-    seed, xs, zs, blocks, buildings, palms, lamps, umbrellas, benches, containers, craneLegs, boats, docks, warehouses,
+    seed, xs, zs, blocks, buildings, palms, lamps, umbrellas, benches, containers, craneLegs, boats, docks, marina, warehouses,
     slots, colliders, bounds, start, starterCar, districtAt, groundHeightAt,
     spawnRng: makeRng(seed * 131 + 7),
   };

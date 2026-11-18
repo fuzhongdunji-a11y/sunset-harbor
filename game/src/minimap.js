@@ -37,7 +37,7 @@ export class Minimap {
     rect(-X_MAX, WORLD.shoreZ, X_MAX, WORLD.shoreZ + 26, PAL.shallow);
     rect(-X_MAX, Z_MIN, X_MAX, WORLD.sandZ, PAL.grass);
     rect(-X_MAX, WORLD.sandZ, X_MAX, WORLD.shoreZ, PAL.sand);
-    for (const d of L.docks) rect(d.x0, d.z0, d.x1, d.z1, d.name.includes('Pier') ? PAL.pier : PAL.quay);
+    for (const d of L.docks) rect(d.x0, d.z0, d.x1, d.z1, d.marina ? '#c89d6c' : d.name.includes('Pier') ? PAL.pier : PAL.quay);
     // blocks first (warm, light), roads on top (dark with a pale kerb line), so the street grid reads at a glance
     for (const b of L.blocks) {
       const h = b.size / 2;
@@ -144,6 +144,105 @@ export class Minimap {
         g.stroke();
         g.fill();
         g.restore();
+      }
+    }
+    // Harbor Contraband Run: white hull chevrons at the berths, a cyan bollard ring on Pier 1, cyan diamonds on the crate buoys, a gold anchor ring on the slip, flashing red/blue triangles for Harbor Patrol
+    const bt = extras.boats;
+    if (bt) {
+      const at = (x, z, h, fn) => {
+        g.save();
+        g.translate(u(x), v(z));
+        g.rotate(-h);
+        g.scale(inv, inv);
+        g.lineJoin = 'round';
+        fn();
+        g.restore();
+      };
+      const edge = (fill, outer = 5) => {
+        g.strokeStyle = '#12151c';
+        g.lineWidth = outer;
+        g.stroke();
+        g.strokeStyle = '#ffffff';
+        g.lineWidth = outer - 3;
+        g.stroke();
+        g.fillStyle = fill;
+        g.fill();
+      };
+      for (const m of bt.moored) {
+        at(m.x, m.z, m.h, () => {
+          g.beginPath();
+          g.moveTo(0, -6);
+          g.lineTo(3.8, 5);
+          g.lineTo(0, 2.6);
+          g.lineTo(-3.8, 5);
+          g.closePath();
+          edge('#ffffff', 4);
+        });
+      }
+      if (bt.ring) {
+        at(bt.ring.x, bt.ring.z, 0, () => {
+          const pr = 1 + Math.sin(now * 4) * 0.12;
+          g.scale(pr, pr);
+          g.beginPath();
+          g.arc(0, 0, 7, 0, Math.PI * 2);
+          g.strokeStyle = '#12151c';
+          g.lineWidth = 6;
+          g.stroke();
+          g.strokeStyle = '#5ee8ff';
+          g.lineWidth = 3;
+          g.stroke();
+        });
+      }
+      for (const b of bt.buoys) {
+        at(b.x, b.z, camYaw, () => {
+          const pr = 1 + Math.sin(now * 6) * 0.14;
+          g.scale(pr, pr);
+          g.beginPath();
+          g.moveTo(0, -8);
+          g.lineTo(6, 0);
+          g.lineTo(0, 8);
+          g.lineTo(-6, 0);
+          g.closePath();
+          edge('#39d5ff', 5);
+        });
+      }
+      if (bt.slip) {
+        g.save();
+        g.translate(u(bt.slip.x), v(bt.slip.z));
+        g.strokeStyle = '#12151c';
+        g.lineWidth = 6 * inv;
+        g.beginPath();
+        g.arc(0, 0, bt.slip.r * S, 0, Math.PI * 2);
+        g.stroke();
+        g.strokeStyle = '#ffc21a';
+        g.lineWidth = 3 * inv;
+        g.setLineDash([8 * inv, 5 * inv]);
+        g.stroke();
+        g.setLineDash([]);
+        g.rotate(-camYaw);
+        g.scale(inv, inv);
+        g.strokeStyle = '#ffc21a';
+        g.lineWidth = 3;
+        g.beginPath(); // anchor: shank, stock, flukes
+        g.moveTo(0, -8);
+        g.lineTo(0, 7);
+        g.moveTo(-4, -4);
+        g.lineTo(4, -4);
+        g.moveTo(-7, 2);
+        g.arc(0, 1, 7, Math.PI, 0, true);
+        g.stroke();
+        g.restore();
+      }
+      const blink = Math.floor(now * 6) % 2 === 0;
+      for (const pb of bt.patrols) {
+        at(pb.x, pb.z, pb.h, () => {
+          g.beginPath();
+          g.moveTo(0, -10);
+          g.lineTo(7, 8);
+          g.lineTo(-7, 8);
+          g.closePath();
+          edge(blink ? '#ff3b30' : '#3a78ff', 6);
+        });
       }
     }
     // Signal Intercept quarry: cyan triangle, dashed red inner ring (15 m) and a solid outer ring (45 m) that flashes yellow when we are out of range

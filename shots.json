@@ -2,5 +2,5 @@
   { "name": "1-start.jpg", "query": "?shot=start&seed=1" },
   { "name": "2-hauler.jpg", "query": "?shot=hauler&seed=1" },
   { "name": "3-chase.jpg", "query": "?shot=chase&seed=1" },
-  { "name": "4-tuner.jpg", "query": "?shot=tuner&seed=1" }
+  { "name": "4-harbor.jpg", "query": "?shot=harbor_chase&seed=1" }
 ]

@@ -241,6 +241,7 @@ export class MissionTracker {
 
   // Where the marker (and minimap blip) currently points.
   get target() {
+    if (this.world.contraband?.active) return this.world.contraband.target; // the boat job points at its next crate / the slip
     const s = this.step;
     if (s.kind === 'steal') return this.vehicle ? { x: this.vehicle.x, z: this.vehicle.z } : null;
     if (s.kind === 'intercept') return this.world.intercept.position;
@@ -250,6 +251,7 @@ export class MissionTracker {
 
   // Data for the HUD panel.
   get view() {
+    if (this.world.contraband?.active) return this.world.contraband.missionView;
     const s = this.step;
     const t = this.target;
     const p = this.world.player;
@@ -284,6 +286,10 @@ export class MissionTracker {
     this.ring.rotation.y += dt * 1.5;
     this.ring.position.y = 0.5 + Math.sin(performance.now() / 300) * 0.15;
     const w = this.world, p = w.player, s = this.step;
+    if (w.contraband?.active) {
+      this.marker.visible = false; // the Contraband Drop is the only job running; the street chain waits
+      return null;
+    }
     const t = this.target;
     this.marker.visible = !!t && s.kind !== 'armored'; // the truck has its chevron, the cases their pillars, the drop-off its beacon
     if (t) this.marker.position.set(t.x, 0.1, t.z);

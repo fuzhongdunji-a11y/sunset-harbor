@@ -77,6 +77,7 @@ function drawMinimap() {
   minimap.draw(world.player, world.vehicles, world.missions.target, world.rig.yaw, {
     peds: world.peds.list,
     crests: world.crests.near,
+    boats: { ...world.boats.mapView, ...world.contraband.mapView },
     armored: world.armored.mapView,
     ambient: world.ambient.active?.mapIcon ?? null,
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },

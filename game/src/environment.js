@@ -7,6 +7,13 @@ import { makeRng } from './rng.js';
 // Low evening sun in the south-west, over the sea: long shadows run inland (north-east), and the sea carries the glitter path.
 export const SUN_DIR = new THREE.Vector3(-0.5, 0.47, 0.72).normalize();
 
+// Sea surface height (the same swell the water mesh is displaced with): boats, buoys and wakes ride on this.
+export const SEA_LEVEL = -0.5;
+export function seaHeight(x, z, t) {
+  if (Math.abs(x) >= 560 || z >= 1000) return SEA_LEVEL;
+  return SEA_LEVEL + Math.sin(x * 0.045 + t * 0.9) * 0.16 + Math.sin(z * 0.06 - t * 1.25 + x * 0.02) * 0.2;
+}
+
 export class Environment {
   constructor(scene) {
     this.scene = scene;
@@ -180,8 +187,8 @@ export class Environment {
     for (let i = 0; i < p.count; i++) {
       const x = base[i * 3], z = base[i * 3 + 2];
       const near = Math.abs(x) < 560 && z < 1000;
-      const wave = near ? Math.sin(x * 0.045 + t * 0.9) * 0.16 + Math.sin(z * 0.06 - t * 1.25 + x * 0.02) * 0.2 : 0;
-      p.array[i * 3 + 1] = -0.5 + wave;
+      const wave = seaHeight(x, z, t) - SEA_LEVEL;
+      p.array[i * 3 + 1] = SEA_LEVEL + wave;
       // turquoise shallows fading to deep blue, lighter wave crests, and glints that twinkle across the water
       const depth = Math.min(1, Math.max(0, (z - shoreZ) / 260));
       const crest = Math.max(0, wave) * 1.4;

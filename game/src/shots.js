@@ -292,6 +292,78 @@ export function prepareShot(name, { world, hud, ui }) {
   }
 
   // on foot on the aisle under the container crane (harbor) or at the root of Lantern Pier (marina), looking south
+  // Harbor Contraband Run hero shot: the player's Sunrunner on the plane heading west along the coast, a crate buoy just ahead-port, a Harbor Patrol Interceptor on its stern quarter, both laying wake foam; the marina piers and Costa Serena skyline behind.
+  if (name === 'harbor_chase') {
+    const DEG = Math.PI / 180;
+    const B = world.boats, C = world.contraband;
+    const boat = B.moored[0];
+    world.cash = 3850;
+    world.boats.board(boat);
+    const h0 = -1.9; // west, a little toward the shore
+    const s0 = { x: 60 + Math.sin(h0) * -72, z: 418 + Math.cos(h0) * -72 }; // start far enough back that the run-up ends near x = 60
+    boat.docked = false;
+    boat.x = s0.x;
+    boat.z = s0.z;
+    boat.h = h0;
+    boat.vx = Math.sin(h0) * 22;
+    boat.vz = Math.cos(h0) * 22;
+    boat.speedF = 22;
+    boat.hp = 230; // hull 92%
+    boat.boostCd = 0;
+    world.wanted.raiseTo(2);
+    C.state = 'COLLECTING';
+    C.collected = 2;
+    C.timeLeft = 78;
+    C.boat = boat;
+    C.boarded = true;
+    C.cooldown = 99;
+    world.district = L.districtAt(boat.x, boat.z);
+    world.missions.marker.visible = false;
+    world.patrol.force = 1;
+    const rel = (b, f, side) => ({ x: b.x + Math.sin(b.h) * f + Math.cos(b.h) * side, z: b.z + Math.cos(b.h) * f - Math.sin(b.h) * side }); // metres ahead / to port of a boat
+    const follow = () => {
+      const pb = world.patrol.list[0];
+      if (!pb) return;
+      const q = rel(boat, -19, -7); // astern, to starboard
+      pb.x = q.x;
+      pb.z = q.z;
+      pb.h = boat.h + 0.1;
+      pb.speedF = boat.speedF;
+      pb.vx = Math.sin(pb.h) * pb.speedF;
+      pb.vz = Math.cos(pb.h) * pb.speedF;
+      pb.input.throttle = 0.3;
+    };
+    for (let i = 0; i < 190; i++) {
+      const keys = KEYS('KeyW', ...(i >= 178 ? ['KeyD'] : []));
+      world.update(1 / 60, keys, NO_MOUSE);
+      hud.update(1 / 60, world);
+      follow();
+    }
+    boat.pitch = 7 * DEG;
+    boat.roll = 11 * DEG; // leaning into the right-hand carve
+    const near = rel(boat, 1, -10); // ahead of the bow, to starboard of the line of travel, which lands in the left third of the frame
+    C.timeLeft = 78;
+    C.buoys = [
+      { x: 0, z: 0, got: true, phase: 0 }, { x: 0, z: 0, got: true, phase: 1 },
+      { ...near, got: false, phase: 2 }, { x: boat.x - 60, z: boat.z + 150, got: false, phase: 3 },
+    ];
+    C._draw();
+    B.update(0);
+    // camera: low three-quarter from ahead of the bow on the seaward side, looking back over the boat at the patrol boat, the piers and the skyline
+    const F = [Math.sin(boat.h), Math.cos(boat.h)], R = [-Math.cos(boat.h), Math.sin(boat.h)];
+    const cam = world.camera;
+    cam.position.set(boat.x + F[0] * 16.5 - R[0] * 11, boat.y + 4.6, boat.z + F[1] * 16.5 - R[1] * 11);
+    cam.fov = 52;
+    cam.updateProjectionMatrix();
+    cam.lookAt(boat.x - F[0] * 4 + R[0] * 2.5, boat.y + 1.4, boat.z - F[1] * 4 + R[1] * 2.5);
+    world.env.update(0, cam, { x: boat.x, z: boat.z });
+    world.messages.length = 0;
+    hud.toastQueue.length = 0;
+    hud.toastTimer = 0;
+    hud.update(1 / 60, world);
+    return;
+  }
+
   if (name === 'harbor' || name === 'marina') {
     const p = world.player;
     p.x = name === 'harbor' ? 178 : -110;
