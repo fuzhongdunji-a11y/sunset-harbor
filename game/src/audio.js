@@ -231,6 +231,8 @@ export class GameAudio {
 
   _event(type) {
     if (type === 'mission') this._jingle([523, 659, 784, 1047], 0.11, 'triangle', 0.16);
+    else if (type === 'escaped') this._jingle([392, 523, 659, 784, 1047], 0.09, 'triangle', 0.15);
+    else if (type === 'wantedUp') this._jingle([880, 660, 880], 0.09, 'square', 0.07);
     else if (type === 'busted') this._busted();
     else if (type === 'wasted') this._wasted();
     else if (type === 'hitPed') this._thump(0.9);

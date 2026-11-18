@@ -59,7 +59,7 @@ export function prepareShot(name, { world, hud, ui }) {
   }
 
   if (name === 'chase') {
-    // three stars: the player runs south down the x = 0 avenue with cruisers on the tail, looking back over the hood
+    // four stars: the player runs south down the x = 0 avenue with cruisers on the tail, looking back over the hood
     const car = world.vehicles.spawn('vesper', 0x17a398, L.xs[4] - 4.5, -168, 0);
     car.vz = 17;
     car.speedF = 17;
@@ -67,11 +67,12 @@ export function prepareShot(name, { world, hud, ui }) {
     world.cash = 3850;
     world.rig.yaw = 0;
     setMission(world, 3, 1);
-    world.wanted.setHeat(5.6);
+    world.wanted.setHeat(8.6); // four stars: red/blue screen edge, pulsing stars, "police on you" meter
     for (const v of [...world.vehicles.list]) if (v.kind === 'parked' && Math.abs(v.x) < 10 && v.z > -230 && v.z < -120 && v !== car) world.vehicles.remove(v);
     const T = world.traffic, P = world.police;
     P.spawnAt(4, 1, 2, 20);
     P.spawnAt(4, 1, 2, 8);
+    P.spawnAt(4, 1, 2, 36);
     P.spawnAt(3, 1, 0, 52); // from the cross street
     const t1 = T.net.lanePoint(4, 2, 3, 62);
     T.spawnAt(4, 2, 3, t1.x, t1.z, 'harborVan');

@@ -2,13 +2,16 @@
 export const STAR_HEAT = [0, 1, 3, 5.5, 8.5, 12]; // heat needed for N stars
 export const CRIME = { stealParked: 1.0, carjack: 3.0, hitPed: 1.2, hitCar: 0.7, ramPolice: 1.6 };
 const SEE_RANGE = 85; // police closer than this keep the search alive
-const EVADE_TIME = 7; // seconds out of sight per star lost
+export const EVADE_TIME = 7; // seconds out of sight per star lost
 
 export class Wanted {
-  constructor(notify) {
+  // hooks: {onRaise(stars), onEscape(starsLost)}, fired when the level goes up and when it is shaken off entirely.
+  constructor(notify, hooks = {}) {
     this.notify = notify;
+    this.hooks = hooks;
     this.heat = 0;
     this.stars = 0;
+    this.peak = 0; // highest level reached in this chase (sets the escape bonus)
     this.evade = 0; // seconds spent unseen at the current level
     this.cooldowns = {};
   }
@@ -31,10 +34,15 @@ export class Wanted {
     const before = this.stars;
     this.heat = h;
     this.stars = Wanted.starsFor(h);
-    if (this.stars > before) this.notify(`WANTED  ${'★'.repeat(this.stars)}`, 'warn');
+    this.peak = Math.max(this.peak, this.stars);
+    if (this.stars > before) {
+      this.notify(`WANTED  ${'★'.repeat(this.stars)}`, 'warn');
+      if (this.hooks.onRaise) this.hooks.onRaise(this.stars);
+    }
   }
 
   clear() {
+    this.peak = 0;
     this.heat = 0;
     this.stars = 0;
     this.evade = 0;
@@ -54,7 +62,13 @@ export class Wanted {
       const n = this.stars - 1;
       this.heat = n === 0 ? 0 : STAR_HEAT[n];
       this.stars = n;
-      this.notify(n === 0 ? 'WANTED LEVEL LOST' : `Heat is dropping  ${'★'.repeat(n)}`, n === 0 ? 'info' : 'warn');
+      if (n === 0) {
+        const peak = this.peak;
+        this.peak = 0;
+        if (this.hooks.onEscape) this.hooks.onEscape(peak);
+      } else {
+        this.notify(`Heat is dropping  ${'★'.repeat(n)}`, 'warn');
+      }
     }
   }
 

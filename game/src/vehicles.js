@@ -23,6 +23,8 @@ export class Vehicle {
     this.impact = 0; // strongest collision this frame (m/s), read by camera shake
     this.roll = 0;
     this.pitch = 0;
+    this.grip = 8.5; // current lateral grip, eased toward its target
+    this.slip = 0; // sideways speed (m/s) before grip acts: drift readout for camera and HUD
     this.kind = 'parked'; // 'parked' | 'traffic' | 'police' (drives minimap colour and AI rules)
     this.health = 100;
     this.locked = false; // police cruisers and wrecks cannot be entered
@@ -108,28 +110,41 @@ export class Vehicle {
     if (driven) {
       if (inp.throttle > 0) {
         if (vF < -0.5) vF = Math.min(0, vF + T.brake * dt);
-        else vF += T.accel * inp.throttle * (1 - Math.max(0, vF) / T.maxSpeed) * dt;
+        else {
+          // punchy launch off the line, strong mid-range pull, soft top end
+          const r = Math.max(0, vF) / T.maxSpeed;
+          const launch = 1 + 0.4 * Math.max(0, 1 - Math.max(0, vF) / 8);
+          const scale = this.driver.isPlayer ? 0.72 : 1; // the player's cars build speed over several seconds so the pull is felt; AI keeps its old pace
+          vF += T.accel * scale * inp.throttle * launch * (1 - Math.pow(r, 1.25)) * dt;
+        }
       } else if (inp.throttle < 0) {
-        if (vF > 0.5) vF = Math.max(0, vF - T.brake * dt);
+        if (vF > 0.5) vF = Math.max(0, vF - T.brake * (this.driver.isPlayer ? 0.62 : 1) * dt); // firm but not a wall: ~1.4 s from 100 km/h
         else vF = Math.max(-T.maxReverse, vF - T.accel * 0.55 * dt);
       } else {
         const drag = (1.4 + Math.abs(vF) * 0.09) * dt;
         vF = Math.abs(vF) <= drag ? 0 : vF - Math.sign(vF) * drag;
       }
-      if (inp.hand) vF *= Math.exp(-1.7 * dt);
+      if (inp.hand) vF *= Math.exp(-(inp.throttle > 0 ? 0.55 : 1.0) * dt); // keep the gas down and the slide carries its speed
     } else {
       // parked: strong friction so bumped cars roll to a stop quickly
       const drag = (6 + Math.abs(vF) * 0.3) * dt;
       vF = Math.abs(vF) <= drag ? 0 : vF - Math.sign(vF) * drag;
     }
-    const grip = driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9;
-    vR *= Math.exp(-grip * dt);
+    // grip eases back after a handbrake slide instead of snapping, so the car settles out of a drift
+    const gripTarget = driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9;
+    this.grip += (gripTarget - this.grip) * Math.min(1, (gripTarget < this.grip ? 20 : 5) * dt);
+    this.slip = Math.abs(vR);
+    vR *= Math.exp(-this.grip * dt);
 
-    const maxSteer = 0.58 / (1 + Math.pow(Math.abs(vF) / 13, 1.25));
+    const maxSteer = 0.62 / (1 + Math.pow(Math.abs(vF) / 14, 1.3));
     const target = inp.steer * maxSteer;
-    this.steer += (target - this.steer) * Math.min(1, 9 * dt);
+    // quick to turn in, quicker to unwind: the wheel centres itself when the key is released
+    const steerRate = inp.steer === 0 || Math.sign(inp.steer) !== Math.sign(this.steer) ? 15 : 9;
+    this.steer += (target - this.steer) * Math.min(1, steerRate * dt);
     let yaw = (vF / T.wheelbase) * Math.tan(this.steer);
     if (inp.hand && Math.abs(vF) > 6) yaw *= 1.45;
+    // self-aligning assist for the human driver: the nose follows the slide, so a slide is catchable (and a handbrake turn still swings)
+    if (driven && this.driver.isPlayer && !inp.hand && Math.abs(vF) > 4) yaw -= vR * 0.16;
 
     // recompose with the old basis, then turn the car: the sideways slip it creates is what decays through grip
     this.vx = sh * vF - ch * vR;

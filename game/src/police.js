@@ -18,6 +18,7 @@ export class Police {
     this.bust = 0;
     this.time = 0;
     this.nearest = Infinity;
+    this.chaseCruise = 26;
   }
 
   get bustProgress() {
@@ -74,6 +75,8 @@ export class Police {
   update(dt, ctx, player, wanted, camFwd) {
     this.time += dt;
     const stars = wanted.stars;
+    // the hotter the chase the harder they push (25.8 m/s at 1 star .. 33 m/s at 5, always under the player's Marlin top speed)
+    this.chaseCruise = 24 + 1.8 * stars;
     const px = player.px, pz = player.pz;
     const pv = player.vehicle;
     const target = {
@@ -87,7 +90,7 @@ export class Police {
     const chasing = this.cops.filter((c) => c.chasing).length;
     this.spawnT -= dt;
     if (stars > 0 && chasing < COPS_FOR_STARS[stars] && this.spawnT <= 0) {
-      this.spawnT = 2.2;
+      this.spawnT = Math.max(1.2, 2.5 - 0.3 * stars); // reinforcements arrive faster at high levels
       this._spawnNearPlayer(player, camFwd);
     }
     this.nearest = Infinity;
@@ -98,7 +101,7 @@ export class Police {
       if (stars > 0 && !cop.chasing) {
         cop.chasing = true;
         cop.drv.chase = true;
-        cop.drv.cruise = 26;
+        cop.drv.cruise = this.chaseCruise;
         cop.drv.snapToRoad();
       } else if (stars === 0 && cop.chasing) {
         cop.chasing = false;
@@ -106,6 +109,8 @@ export class Police {
         cop.drv.direct = false;
         cop.drv.cruise = 12;
         cop.drv.snapToRoad();
+      } else if (cop.chasing) {
+        cop.drv.cruise = this.chaseCruise;
       }
       if (cop.chasing && dist > 330) {
         this._remove(cop);

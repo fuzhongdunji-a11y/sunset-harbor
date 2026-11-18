@@ -44,7 +44,15 @@ export class World {
     this.messages = []; // {text, kind} consumed by the HUD
     this.events = []; // one-shot sound cues ('hitPed', 'mission', 'busted', 'wasted', 'door', 'carjack') consumed by audio
     this.cash = START_CASH;
-    this.wanted = new Wanted((t, k) => this.notify(t, k));
+    this.wanted = new Wanted((t, k) => this.notify(t, k), {
+      onRaise: () => this.emit('wantedUp'),
+      onEscape: (peak) => {
+        const bonus = 120 * Math.max(1, peak); // shaking the cops off pays, more the hotter it got
+        this.cash += bonus;
+        this.emit('escaped');
+        this.notify(`LOST THEM  +$${bonus}`, 'escape');
+      },
+    });
     this.district = '';
     this.prompt = '';
     this.fx = null; // {kind: 'wasted' | 'busted', t}

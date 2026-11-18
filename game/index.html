@@ -11,6 +11,8 @@
   <canvas id="view"></canvas>
 
   <div id="hud" class="hidden">
+    <div id="speedfx"></div>
+    <div id="edge"></div>
     <div id="mission">
       <div class="m-tag">MISSION</div>
       <div id="m-title"></div>
@@ -20,7 +22,9 @@
 
     <div id="topright">
       <div id="cash">$0</div>
+      <div id="cash-delta"></div>
       <div id="stars" title="Wanted level"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>
+      <div id="evade" class="hidden"><div id="evade-bar"></div><span id="evade-txt">POLICE ON YOU</span></div>
       <div id="bust" class="hidden"><div id="bust-bar"></div><span>BEING ARRESTED</span></div>
     </div>
 
@@ -30,13 +34,14 @@
     </div>
 
     <div id="speedo" class="hidden">
+      <div id="drift" class="hidden">DRIFT</div>
       <div class="speed-line"><span id="speed-val">0</span><span class="unit">km/h</span></div>
       <div id="speed-track"><div id="speed-bar"></div></div>
       <div id="hp-track" title="Car condition"><div id="hp-bar"></div></div>
       <div id="car-name"></div>
     </div>
 
-    <div id="prompt" class="hidden"></div>
+    <div id="prompt" class="hidden"><b id="prompt-key"></b><span id="prompt-text"></span></div>
     <div id="toast"></div>
     <div id="banner" class="hidden"></div>
     <div id="hints"></div>
