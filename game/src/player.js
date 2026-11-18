@@ -148,6 +148,7 @@ export class Player {
     v.input.throttle = (input.down('KeyW', 'ArrowUp') ? 1 : 0) - (input.down('KeyS', 'ArrowDown') ? 1 : 0);
     v.input.steer = (input.down('KeyA', 'ArrowLeft') ? 1 : 0) - (input.down('KeyD', 'ArrowRight') ? 1 : 0);
     v.input.hand = input.down('Space');
+    v.input.boost = input.down('ShiftLeft', 'ShiftRight'); // Solaris Customs nitrous (on foot the same key sprints)
     this.x = v.x;
     this.z = v.z;
     this.y = v.y;

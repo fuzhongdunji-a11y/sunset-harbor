@@ -5,6 +5,7 @@ import { DIRS } from './roadNet.js';
 
 const TYPES = [['marlin', 0.3], ['pico', 0.26], ['dune', 0.18], ['harborVan', 0.16], ['vesper', 0.1]];
 const RECYCLE = 240;
+const ASSIST_P = 0.35; // chance that a recycled car turns into the Export Board's wanted model while none is on the road
 
 export function spotFree(vehicles, x, z, radius) {
   for (const v of vehicles) {
@@ -117,10 +118,24 @@ export class Traffic {
       if (Math.abs(v.x - focus.x) > RECYCLE || Math.abs(v.z - focus.z) > RECYCLE) {
         const s = this.findSpot(focus, 110, 210);
         if (s) {
-          c.drv.place(s.i, s.j, s.d, (s.x - this.net.xs[s.i]) * DIRS[s.d].x + (s.z - this.net.zs[s.j]) * DIRS[s.d].z);
-          v.steer = 0;
+          const want = this.assist?.(); // Solaris Customs export board: with none of the wanted model on the road, a recycled car becomes one 35% of the time
+          if (want && c.v.typeKey !== want && this.rng() < ASSIST_P && !this.cars.some((o) => o.v.typeKey === want)) this._swapType(c, want, s);
+          else {
+            c.drv.place(s.i, s.j, s.d, (s.x - this.net.xs[s.i]) * DIRS[s.d].x + (s.z - this.net.zs[s.j]) * DIRS[s.d].z);
+            v.steer = 0;
+          }
         }
       }
     }
+  }
+
+  // Replace a civilian car by a fresh one of another model on lane spot `s` (the entry keeps its slot in the fleet).
+  _swapType(c, type, s) {
+    this.vm.remove(c.v);
+    const v = this.vm.spawn(type, this.rng.pick(PAINTS), s.x, s.z, DIRS[s.d].h, 'traffic');
+    const drv = new RoadDriver(v, this.net, this.rng, { cruise: this._pickCruise(type) });
+    drv.place(s.i, s.j, s.d, (s.x - this.net.xs[s.i]) * DIRS[s.d].x + (s.z - this.net.zs[s.j]) * DIRS[s.d].z);
+    c.v = v;
+    c.drv = drv;
   }
 }

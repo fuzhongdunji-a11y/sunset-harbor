@@ -44,6 +44,7 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 
 - ボート（improve-batch2 記録 4）: `boatSystem.js`（物理・係留・乗降・波跡）、`boatModels.js`、`shoreline.js`（接地ガード・衝突・上陸点）、`harborPatrol.js`、`contrabandMission.js`、`boatAudio.js`。
 - 警察ヘリ（improve-batch3 記録 1）: `airpursuit.js`（Costa Air-1: ヘリ・サーチライト・Spike-Pod・6状態機械・Cold Swap・Scanner Ghost・`?shot=airpursuit` 配置）。`wanted.js`/`vehicles.js`/`hud.js`/`audio.js`/`minimap.js` に小さな連携のみ。
+- Solaris Customs（improve-batch3 記録 2）: `customs.js`（配置・状態機械・エクスポート・リコール）、`customsCatalog.js`（価格・数式）、`customsModel.js`（ジオメトリ）、`customsHud.js`、`customsAudio.js`、`customsShot.js`（`?shot=customs`）。`vehicles.js`/`vehicleModels.js`/`traffic.js`/`police.js`/`collision.js`/`minimap.js`/`save.js` に小さな連携のみ。
 - `ambient/`（街イベント）: `AmbientDirector.js`（スケジューラ）、`TunerBreakdownEvent.js`（Roadside Tuner）、`StuntHaulerEvent.js`（Sky-Ad Stunt Hauler の状態機械・ランプ発射物理・シャード・スローモ）、`HaulerModel.js`（ランプトラックのモデルとランプ寸法）、`HaulerArt.js`（シェブロン/COSTA COLA の Canvas テクスチャ・ドローンキューブ・テザー・シャード）、`AmbientAudio.js`（合成音）。街イベントはこれで gemini-brief2 の全項目が完了。
 
 ## ステージ計画と完了条件
@@ -189,7 +190,32 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - `main.ts` 成功・2回出力一致、game/ 56 ファイル 約 1.4MB、シンボリックリンクなし、`http` 参照なし、shoot.mjs errors/外部リクエストなし。
 - 既知の見た目/仕様: ビームは LOCKED で琥珀だが加算合成の弱い値のため淡い色（ほぼ白）に見える。ローターのブレード羽根はヘリ全体の向きに従う（個別に傾けない）。Cold Swap 後の SEARCHING で再び照らされるのは「ディスクの直撃」か「26m/s 超かつ 35m 以内」のみ。
 
+**improve-batch3 記録 2（Solaris Customs: 塗装・チューニング・ホットスプレー・エクスポートボード）**:
+- 設計: Gemini 4 Carbon 作成 `/home/hatch/workspace/makefun-gta6/gemini-brief6.md`（全8節）。ブリーフのパスは実リポジトリの平置きに読み替え。brief7 には着手していない。
+- 新ファイル（1ファイル1責務、ブリーフの「customs.js 1本」を分割）: `customsCatalog.js`（価格表・チューニング倍率・Nitrous ステッパ・エクスポート巡回/ペイアウト・セーブ検証、three 非依存）、`customsModel.js`（静的ガレージ・シャッター・加算合成グロー用ジオメトリ）、`customs.js`（`findCustomsLot`・`SolarisCustoms`: 状態機械・メニュー・スプレー・エクスポート・リコール・カメラ）、`customsHud.js`（DOM、index.html は無改変）、`customsAudio.js`（合成音）、`customsShot.js`（`?shot=customs`）。
+- **配置**: `findCustomsLot(layout)` を `World` コンストラクタで `buildCity` の前に実行（レイアウトを直接書き換える）。種 0x534F4C52、(-84,62) は道路上なので、ブロックの建物ライン上の 20×14.5m 区画から (-84,62) に近く、除去建物面積が小さいものを選ぶ（半径140m以内）。seed=1 では anchor (-67.5, 68)、向き −x（x=-80 の大通りに面する）。区画内の建物・ヤシ・街灯・ベンチ・傘とそのコライダ、口の前の路駐スロットを除去。ミニマップ（prerender）は除去後のレイアウトを描く。
+- **状態機械**（brief §2.2 の数値どおり）: IDLE_OPEN → PULLING_IN 0.65s（シャッター降下・カメラ平滑）→ IN_BAY_MENU → SPRAY_SEQUENCE 2.8s / ホット 3.5s（1.4s で塗装・耐久100%、終了で★0・heat 0）→ EXITING_BAY 0.8s（6.0 m/s で排出）→ COOLDOWN 4.0s。進入ゲート: 速度 ≤16.0 m/s（超過は `SLOW DOWN TO ENTER BAY (< 58 KM/H)`、トラップ無し: 口の中で巻き込み減速、口を出るまで再進入不可 = 再武装）、★1〜4 で警察/Air-1 が 38.0m 以内なら `LOSE LINE OF SIGHT! COPS 23m AWAY (NEED 38m)`（接近中は距離をライブ表示、琥珀の回転ビーコン）、★5 は `LOCKDOWN`（シャッター半開き + 赤ストロボ）。ブザー 1.5s デバウンス。`police.sealed` で庫内は逮捕・体当たり無効。
+- **料金**: Hot Respray $400+$250×★（セーブごとの初回は無料）、0★ 修理 $250（同訪問で塗装済みなら $0）、ホットのクールダウン 90.0s（1★以上を消したとき）、塗装 $350、リム $0/$450/$500/$600、エンジン $900/$1,800/$3,000、シャーシ $750/$1,600、N2O $1,200/$2,400、別の車へのシグネチャ装着 $200。Recall Signature Ride 60.0s（無料、徒歩でスタールの脇 4.2m 以内で E）。メニュー: W/S カテゴリ、A/D 選択、E/Enter 購入、R クイックサービス、Q/Backspace 退出。塗装・リムはカーソルで即プレビュー（購入前はカーソル移動で元に戻る、draw call +0）。
+- **性能・物理**（`vehicles.js`）: `applyCustom(spec)` が塗装マスク（センチネル色で一度ビルドして差分から頂点を特定）・リムジオメトリ差し替え・エアロキット（フロントスプリッター + 後部ウイング）頂点の追記を行う。`topSpeed`・`accelMultiplier`・`dmgMul`・`ramMul`・`gripRecover`。Nitrous は左 Shift（徒歩はスプリントのまま）: スロットル必須・4 m/s 以上・チャージ 20% 以上で開始、burn 1.8/2.8s、推力 +9.5/+11.4 m/s²、天井 +8.0/+10.5 m/s、リリース後 1.2/1.0s で回復 0.10/0.133 毎秒（ドリフト中は +0.12/+0.15）。カメラ FOV +7°（8/s）、双炎、ウェイストゲート風のフラッター音。
+- **エクスポートボード**: `EXPORT_TYPES` = marlin / pico / harborVan / dune / tuner / vesper の6車種（ブリーフの6体はゲーム内に無いため、民間5車種 + Kestrel Street Tuner。tuner=「Boulevard Muscle」$2,350、vesper=「Harbor GT」$2,750）をシードシャッフル（サイクル番号で決定的）。ペイアウト `round10(Base×(0.5+0.5×HP/100))+$250(HP≥95%)+$350(ガレージで塗ったスウォッチ一致)`、★2以上はブロック、★1 は納品で 0★、6/6 で +$600 と 45s の再入荷。トラフィックは `traffic.assist` で該当車種が0台のとき、リサイクルごとに 35% でその車種へ差し替え（検証: 7回目で出現）。
+- **ミニマップ**: ガレージのレンチバッジ（リム固定）、★1〜4 かつクールダウン明けのシアンの脈動リング、金のダイヤと（該当車に乗っている間）破線ガイド。**HUD**: `#customs-panel`（左 28px/上 108px、356px、6行 + 3本のステータスバー、パネル表示中はミッション枠とミニマップを隠す）、`#n2o-hud`（速度計の上に配置、ブリーフの bottom:92px は速度計と重なるため）、チューニングチップ、エクスポート一致ピル（ミッション枠の下）、ゲート警告、CLEARED バナー、スレートの投影ラベル。
+- **音**（`customsAudio.js`、ブリーフの周波数どおり）: シャッター、エアブラシ+チャイム、インパクトレンチ、N2O ループとフラッター、エクスポートのアルペジオ、拒否ブザー。`audio.js` に `playShutterSound/playSpraySound/playWrenchSound/playNitrousSound/playExportJingle` の薄い転送を追加。
+- **セーブ**: `customs: {build, exportCount, firstResprayUsed}` と現在の車の `custom` を保存（`sanitizeCustoms` で検証、旧データは空）。`NEW GAME` で消える。
+- **ブリーフからの逸脱と判断**:
+  1. リムの「[third style]」は **Chrome Spoke（#EEF3F8、$500）** を創作（$400–$600 帯）。リム tier ≥2 ではなく **リム 1 以上（Stock 以外）でエアロキット** を付ける（リムは4種なので「Tiers 2–4」= Stock 以外）。
+  2. 速度上限: `tunedTop = min(基準×(1+g), max(基準, 39.0))`。Marlin 41・Vesper 52 は基準が 39 超なので最高速は伸びず、加速 +30% と N2O のみ効く。Harbor Van 33 → 39.0（+18%）、Pico 35 → 39.0。ブリーフの「+22%」は基準 32 m/s 以下の車でしか満たせないため、上限側を優先。
+  3. 塗装は E で購入 → すぐ 2.8s のスプレーへ（メニューに戻る）、ホットは終了後に自動退出。ブリーフの「購入して Exit を押すとスプレー」は簡略化。リムは購入のたびに課金（所有済みセットは持たない）。
+  4. オービットカメラ: ブリーフの半径 6.4m はベイの壁（幅9m）の外に出るため、**半径 3.4m・高さ 2.0m、ベイ内にクランプ**（角速度 0.28 rad/s は同じ）。
+  5. `?shot=customs` のカメラ: ブリーフ（P+F·7.8+R·5.4+U·2.65、注視 P−F·2.2−R·1.8+U·1.15）は SOLARIS サインとスレートが入らず近すぎるため、**P+F·15+R·6.5+U·3.4、注視 P−F·3.0+R·0.5+U·2.2、FOV 54** に再設定。ガレージの向きがシードで決まるので警察車は along−7 に置く。N2O の炎は車の後ろ（ベイ側）に向くので、正面寄りのこのカメラでは車体に隠れる（側面から見ると見える: 検証済み）。スタールのラベルは HUD の投影テキスト。
+  6. 新しい draw call は 4（静的ガレージ / シャッター / ミニカー / グロー）+ 静的メッシュの影パス 1（ブリーフの目標 +4、上限 +6 内）。ミニカーはホイール無しの車体のみ（1 draw call）。
+  7. システムは main.js ではなく `world.js` が保持（ボート等と同じ。main.js はショット登録・ミニマップへの受け渡しのみ）。N2O ゲージはブリーフの「ミニマップ左下のカード」ではなく速度計の上に配置（左下はミニマップ）。
+- **検証**（ブラウザ内の使い捨て `/tmp/cs/check*.mjs`、playwright）: 12m/s で進入 → 39フレーム（0.65s）でシャッター全閉・パネル表示、20m/s は拒否（トラップ無し、耐久100のまま）。警察 23m で拒否・70m で受理、★2 ホット 初回 $0 / 2回目 $900、クールダウン中は購入不可、★5 ロックダウン（シャッター 0.5）、★4 で受理。塗装8種のプレビュー、リム preview で頂点 570→780 かつ draw call 差 0、元に戻る。Harbor Van Stage 3 は 33→39.0 m/s（実測 38.99）、N2O Pro は 2.80 s 燃焼・0→満タン 7.48 s、スプレー 169 フレーム（2.8s）/ ホット 211（3.5s）、退出 48 フレーム（0.8s）。エクスポート6台の支払いが式と一致（1,440 / 2,100 / 2,600 / 2,200 / 3,000+$600 の6/6）、★2 ブロック、★1 で 0★。リロード後にビルド・進行・車のチューニングが復元、Recall で同スペックの車（60s）。音の呼び出し 20 回でコンソールエラー 0。`?shot=customs` 2回の差分 0（ピクセル完全一致）、旧ショット start/chase/intercept/crest/armored/tuner/hauler/harbor_chase/airpursuit/drive/walk の shoot.mjs は errors/外部リクエスト 0。`grep rockstar|grand theft|los santos|vice city|pay.?n.?spray` は 0 件。**未検証: 実機の操作感・聴感（ヘッドレス）**。
+- 性能: 同一カメラでガレージの group 表示/非表示を比較すると customs ショットで 283→288 draw call（+5、影パス込み）、メニュー中 +4、スプレー中 +4、三角形 +約 2.1k（≤2.5k）。perf.mjs 25秒 640x360: draw call 平均 110.9・最大 226、三角形 約 159.7k（前回 115 / 235 / 156k と同等、swiftshader の揺れ内）。game/ 62 ファイル・約 1.5MB、`main.ts` 成功・2回出力一致。
+- **スクショ差し替え**: `2-hauler.jpg` を撤去し `2-customs.jpg`（`?shot=customs`）に（Stunt Hauler は街イベントの一つで、ガレージは経済ループ（修理・手配消去・チューニング・輸出）の新しい見せ場。構成は start / customs / air / harbor）。4枚とも Read で目視確認済み。`?shot=hauler` 自体は残存。
+- 既知の見た目: 炎・ミストは淡いシアン、ミニカーはホイール無し、SOLARIS の文字は低解像度のブロック書体、メニューのカーソル表示は DOM のみ。
+
 ## 操作
+Left Shift（車内）= Nitrous（Solaris Customs で購入）、Solaris Customs のスタール脇/リコールパッドで E。
 WASD 移動/運転、Shift 走る、**E 長押し（ストランデッドタナーの修理）**、Space ジャンプ/ハンドブレーキ（ボートではトリムブースト）、F 乗降（ボートの乗降を含む）、マウス視点（クリックでポインタロック）、Esc/P ポーズ。
 
 ## 撮影手順

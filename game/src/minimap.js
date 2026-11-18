@@ -21,6 +21,54 @@ export class Minimap {
     this.map = this._prerender();
   }
 
+  // Solaris Customs: a coral/teal wrench badge pinned to the rim when out of range, a pulsing cyan escape ring at 1-4 stars (Heat-Wipe ready),
+  // a gold diamond on the Export Pad and a dashed guide line to it while driving the wanted model.
+  _customs(g, c, player, camYaw, zoom, now) {
+    const R = this.size / 2, lim = R - 22, cs = Math.cos(camYaw), sn = Math.sin(camYaw);
+    const to = (x, z) => {
+      const dx = (u(x) - u(player.px)) * zoom, dy = (v(z) - v(player.pz)) * zoom;
+      let mx = dx * cs - dy * sn, my = dx * sn + dy * cs;
+      const d = Math.hypot(mx, my);
+      if (d > lim) { mx = (mx / d) * lim; my = (my / d) * lim; }
+      return [R + mx, R + my];
+    };
+    const [gx, gy] = to(c.x, c.z);
+    if (c.ex) {
+      const [ex, ey] = to(c.ex.x, c.ex.z);
+      if (c.match) {
+        g.save();
+        g.setLineDash([8, 7]);
+        g.strokeStyle = '#ffd166';
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(R, R); g.lineTo(ex, ey); g.stroke();
+        g.restore();
+      }
+      g.save();
+      g.translate(ex + 14, ey - 4);
+      g.beginPath(); g.moveTo(0, -7); g.lineTo(7, 0); g.lineTo(0, 7); g.lineTo(-7, 0); g.closePath();
+      g.fillStyle = '#ffd166'; g.fill();
+      g.strokeStyle = '#12151c'; g.lineWidth = 2; g.stroke();
+      g.restore();
+    }
+    if (c.ring) {
+      const ph = (now * 2.5) % 1;
+      g.strokeStyle = `rgba(0,245,212,${(1 - ph).toFixed(2)})`;
+      g.lineWidth = 3.5;
+      g.beginPath(); g.arc(gx, gy, (7 + 5 * ph) * 1.9, 0, Math.PI * 2); g.stroke();
+    }
+    g.save();
+    g.translate(gx, gy);
+    g.fillStyle = '#1e293b';
+    g.strokeStyle = '#00e5c3';
+    g.lineWidth = 3;
+    g.beginPath(); g.roundRect(-11, -11, 22, 22, 5); g.fill(); g.stroke();
+    g.strokeStyle = '#ff5e5b';
+    g.lineWidth = 3.5;
+    g.beginPath(); g.moveTo(-6, 6); g.lineTo(6, -6); g.stroke();
+    g.beginPath(); g.arc(6.5, -6.5, 3.2, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
+
   _prerender() {
     const L = this.layout;
     const c = document.createElement('canvas');
@@ -527,6 +575,7 @@ export class Minimap {
     g.fillStyle = '#ff5a3c';
     g.fill();
     g.restore();
+    if (extras.customs) this._customs(g, extras.customs, player, camYaw, zoom, now);
     if (drawWrench) drawWrench(); // on top of the player arrow so a tuner right next to us still shows
     // rim: dark outer ring + white ring so the disc separates from any scene colour behind it
     g.strokeStyle = 'rgba(12,16,24,0.7)';

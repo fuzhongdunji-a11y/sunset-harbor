@@ -277,3 +277,85 @@ export function buildCarModel(typeKey, paint) {
   }
   return { group, chassis, wheels, wheelRadius: WHEEL_R, lights };
 }
+
+// ---- Solaris Customs: live paint / rim / aero-kit changes. Everything swaps vertex data or geometry on the existing meshes, so draw calls never change.
+const SENTINEL = 0x0a0b0c; // an off-palette paint: building a car with it shows which vertices are body paint
+const maskCache = new Map();
+const rimGeoCache = new Map();
+const near = (a, b) => Math.abs(a - b) < 0.004;
+
+// Per-vertex paint mask for a car type (1 = takes the body colour), found by diffing a sentinel-painted build.
+function paintMask(typeKey) {
+  let m = maskCache.get(typeKey);
+  if (m) return m;
+  const model = buildCarModel(typeKey, SENTINEL);
+  const col = model.chassis.children[0].geometry.attributes.color;
+  const s = new THREE.Color(SENTINEL);
+  m = new Uint8Array(col.count);
+  for (let i = 0; i < col.count; i++) m[i] = near(col.getX(i), s.r) && near(col.getY(i), s.g) && near(col.getZ(i), s.b) ? 1 : 0;
+  model.chassis.children[0].geometry.dispose();
+  maskCache.set(typeKey, m);
+  return m;
+}
+
+// Wheel geometry with the rim colour swapped (cached per colour; the stock alloy is the shared original).
+export function rimGeometry(hex) {
+  if (hex === null) return getWheelGeometry();
+  let g = rimGeoCache.get(hex);
+  if (g) return g;
+  g = getWheelGeometry().clone();
+  const col = g.attributes.color;
+  const chrome = new THREE.Color(CHROME), c = new THREE.Color(hex);
+  for (let i = 0; i < col.count; i++) if (near(col.getX(i), chrome.r) && near(col.getY(i), chrome.g) && near(col.getZ(i), chrome.b)) col.setXYZ(i, c.r, c.g, c.b);
+  rimGeoCache.set(hex, g);
+  return g;
+}
+
+// Rear GT wing and front splitter in the type's local frame (the wing is skipped on vans / pickups, which have no deck to carry it).
+function aeroKit(b, t, accent) {
+  const w = t.wid / 2, hl = t.len / 2;
+  b.box(-w * 1.0, 0.16, hl - 0.05, w * 1.0, 0.24, hl + 0.6, DARK); // front splitter
+  b.box(-w * 1.0, 0.24, hl + 0.55, w * 1.0, 0.27, hl + 0.6, accent); // lip highlight
+  if (t.body === 'van' || t.body === 'pickup') return;
+  const y = t.body === 'coupe' ? 0.9 : t.body === 'hatch' ? 1.5 : 0.95;
+  const z = -hl + 0.12;
+  for (const sx of [-1, 1]) b.box(sx * w * 0.5 - 0.04, y, z - 0.04, sx * w * 0.5 + 0.04, y + 0.3, z + 0.1, DARK); // standoffs
+  b.box(-w * 0.9, y + 0.3, z - 0.2, w * 0.9, y + 0.36, z + 0.3, DARK); // blade
+  for (const sx of [-1, 1]) b.box(sx * w * 0.9 - 0.025, y + 0.24, z - 0.22, sx * w * 0.9 + 0.025, y + 0.46, z + 0.32, accent); // end plates
+}
+
+// New body geometry for a customised car: the stock geometry with the paint vertices recoloured and (aero) the kit appended. Caller disposes the previous result.
+export function buildCustomBody(typeKey, baseGeo, paintHex, accentHex, aero) {
+  const src = baseGeo.attributes;
+  const n = src.position.count;
+  let kit = null;
+  if (aero) {
+    const kb = new MeshBuilder();
+    aeroKit(kb, CAR_TYPES[typeKey], new THREE.Color(accentHex));
+    kit = kb;
+  }
+  const extra = kit ? kit.pos.length / 3 : 0;
+  const pos = new Float32Array((n + extra) * 3), nrm = new Float32Array((n + extra) * 3), col = new Float32Array((n + extra) * 3), uv = new Float32Array((n + extra) * 2);
+  pos.set(src.position.array);
+  nrm.set(src.normal.array);
+  col.set(src.color.array);
+  uv.set(src.uv.array);
+  if (paintHex !== null) {
+    const m = paintMask(typeKey), c = new THREE.Color(paintHex);
+    for (let i = 0; i < n; i++) if (m[i]) col.set([c.r, c.g, c.b], i * 3);
+  }
+  if (kit) {
+    pos.set(kit.pos, n * 3);
+    nrm.set(kit.nrm, n * 3);
+    col.set(kit.col, n * 3);
+    uv.set(kit.uv, n * 2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.computeBoundingSphere();
+  g.computeBoundingBox();
+  return g;
+}

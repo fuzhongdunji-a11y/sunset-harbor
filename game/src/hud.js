@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { EVADE_TIME } from './wanted.js';
 import { CREST_TOTAL, QUOTA, GROUP_NAME, MILESTONES, nextMilestone } from './crests.js';
+import { CustomsHud } from './customsHud.js';
 import { S as MAP_S, X_MAX as MAP_X, Z_MAX as MAP_Z } from './minimap.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +31,7 @@ export class Hud {
       cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
     };
     this._buildAir();
+    this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
     this.tmp = new THREE.Vector3();
     this.crestTimer = 0;
     this.resultTimer = 0;
@@ -444,6 +446,7 @@ export class Hud {
     this._crests(world, dt);
     this._ambient(world, dt);
     this._air(world);
+    this.customsHud.update(world, this.root);
     this.playTime += dt;
     e.hints.classList.toggle('dim', this.playTime > HINT_DIM_AFTER);
     const bust = Math.max(world.police.bustProgress, world.patrol.bustProgress);
@@ -507,7 +510,7 @@ export class Hud {
       this._set('speed', e.speed, String(kmh));
       this._set('car', e.carName, p.vehicle.type.name);
       e.hpBar.style.width = `${Math.round(p.vehicle.health)}%`;
-      const ratio = Math.min(1, p.vehicle.speedKmh / (p.vehicle.type.maxSpeed * 3.6));
+      const ratio = Math.min(1, p.vehicle.speedKmh / (p.vehicle.topSpeed * 3.6));
       e.speedBar.style.width = `${(ratio * 100).toFixed(0)}%`;
       e.speedBar.classList.toggle('redline', ratio > 0.92);
       // DRIFT tag: held briefly so it does not flicker while the slide fades

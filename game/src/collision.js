@@ -35,6 +35,7 @@ export class Collision {
         const list = this.grid.get(this._key(ix, iz));
         if (!list) continue;
         for (const c of list) {
+          if (c.off) continue; // switched-off collider (the Solaris Customs shutter while it is up)
           let nx, nz, depth;
           if (c.type === 'aabb') {
             const px = Math.min(Math.max(x, c.x0), c.x1);

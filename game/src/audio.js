@@ -2,6 +2,7 @@
 // The AudioContext is created by start(), which the title screen calls from the player's click / key press (browser autoplay rules).
 import { AmbientAudio } from './ambient/AmbientAudio.js';
 import { BoatAudio } from './boatAudio.js';
+import { CustomsAudio } from './customsAudio.js';
 
 const MUTE_KEY = 'sunsetHarbor.mute';
 
@@ -22,7 +23,14 @@ export class GameAudio {
     this.buzzT = 0; // suspicion buzzer / signal-loss beeps
     this.ambient = new AmbientAudio(this); // ambient city events (Roadside Tuner)
     this.boat = new BoatAudio(this); // outboards, wave slam, sonar chirp, patrol hailer
+    this.customs = new CustomsAudio(this); // Solaris Customs shutter, spray, wrench, nitrous, export jingle
   }
+
+  playShutterSound(opening) { this.customs.playShutterSound(opening); }
+  playSpraySound() { this.customs.playSpraySound(); }
+  playWrenchSound() { this.customs.playWrenchSound(); }
+  playExportJingle() { this.customs.playExportJingle(); }
+  playNitrousSound(active) { if (active) this.customs._buildNitrous?.call(this.customs); }
 
   get ready() {
     return !!this.ctx;
@@ -342,6 +350,7 @@ export class GameAudio {
     this._alarm(dt, world.armored, p, t);
     this.ambient.update(dt, world.ambient.active, t);
     this.boat.update(dt, world, t);
+    this.customs.update(dt, world, t);
     const air = world.air;
     this.updateRotorAudio(air ? air.audio.dist : 999, air ? air.audio.closing : 0, !!air && air.active && !world.fx);
     for (const e of events) this._event(e);
@@ -430,6 +439,7 @@ export class GameAudio {
 
   _event(type) {
     if (type.startsWith('amb')) this.ambient.event(type);
+    else if (type.startsWith('cust')) this.customs.event(type);
     else if (type === 'boatSlam' || type === 'cratePing' || type === 'patrolHorn' || type === 'boatBoost' || type === 'cbdStart') this.boat.event(type);
     else if (type === 'airLock') this.playAirLockChirp();
     else if (type === 'airSpikeDrop') this.playSpikeDrop();

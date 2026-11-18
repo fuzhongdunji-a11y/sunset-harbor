@@ -132,8 +132,10 @@ export class CameraRig {
     }
     cam.lookAt(this.target);
     this.fov += (fovTarget - this.fov) * Math.min(1, 2.5 * dt);
-    if (Math.abs(cam.fov - this.fov) > 0.05) {
-      cam.fov = this.fov;
+    const kickTo = mode === 'car' && player.vehicle.custom?.isBoosting ? 7 : 0; // Solaris Customs nitrous: +7 deg, eased at 8/s
+    this.kick = (this.kick ?? 0) + (kickTo - (this.kick ?? 0)) * Math.min(1, 8 * dt);
+    if (Math.abs(cam.fov - this.fov - this.kick) > 0.05) {
+      cam.fov = this.fov + this.kick;
       cam.updateProjectionMatrix();
     }
   }

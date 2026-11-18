@@ -19,6 +19,7 @@ export class Police {
     this.time = 0;
     this.nearest = Infinity;
     this.chaseCruise = 26;
+    this.sealed = false; // the player is inside the Solaris Customs bay: no arrests, no ramming
     this.suppress = false; // Signal Intercept in progress: the first star draws a single, distant patrol (see update)
   }
 
@@ -134,16 +135,16 @@ export class Police {
       v.lights.blue.material.color.setHex(on && !ph ? 0x3a78ff : 0x0e1f4a);
 
       // contact with the player: shove and slow them down
-      if (pv && v.contact === pv) {
-        pv.vx *= Math.exp(-1.1 * dt);
-        pv.vz *= Math.exp(-1.1 * dt);
+      if (pv && v.contact === pv && !this.sealed) {
+        pv.vx *= Math.exp(-1.1 * dt * pv.ramMul);
+        pv.vz *= Math.exp(-1.1 * dt * pv.ramMul);
         if (v.impact + pv.impact > 3.5) wanted.commit('ramPolice');
       }
     }
 
     // arrest: surrounded and slow
     const slow = pv ? Math.abs(pv.speedF) < 6.5 : true;
-    if (stars > 0 && close > 0 && slow) this.bust += dt * (1 + 0.3 * (close - 1));
+    if (stars > 0 && close > 0 && slow && !this.sealed) this.bust += dt * (1 + 0.3 * (close - 1));
     else this.bust = Math.max(0, this.bust - dt * 1.2);
     if (this.bust >= BUST_TIME) {
       this.bust = 0;

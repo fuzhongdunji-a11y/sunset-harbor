@@ -25,6 +25,7 @@ import { ContrabandRun } from './contrabandMission.js';
 import { AmbientDirector } from './ambient/AmbientDirector.js';
 import { TUNER_DEF } from './ambient/TunerBreakdownEvent.js';
 import { HAULER_DEF } from './ambient/StuntHaulerEvent.js';
+import { SolarisCustoms, findCustomsLot } from './customs.js';
 import { makeRng } from './rng.js';
 import { START_CASH } from './config.js';
 
@@ -40,6 +41,7 @@ export class World {
     this.scene = scene;
     this.camera = camera;
     this.layout = generateCity(seed);
+    const customsLot = findCustomsLot(this.layout); // clears one parcel of buildings/props before the city is meshed
     scene.add(buildCity(this.layout, seed), buildScenery(this.layout));
     this.env = new Environment(scene);
     this.collision = new Collision(this.layout.colliders, this.layout.bounds);
@@ -96,6 +98,8 @@ export class World {
     this.armoredPops = []; // floating texts ("HEAVY RAM!", "ON-FOOT GRAB!") for the HUD
     this.armoredResult = null; // {lines, total, t} payout breakdown for the HUD after Armored Shakedown
     this.missions = new MissionTracker(this, scene);
+    this.customs = new SolarisCustoms(this, scene, customsLot); // Solaris Customs garage, export board and recall pad
+    this.traffic.assist = () => this.customs.activeType; // keep one car of the wanted export model in circulation
     this.traffic.populate(TRAFFIC_COUNT, s);
     this.peds.populate(s);
   }
@@ -152,6 +156,7 @@ export class World {
     this.cash = save.cash;
     this.missions.restore(save.completed);
     this.crests.restore(save.crests, this);
+    this.customs.restore(save.customs);
     let { x, z } = save;
     for (let r = 0; r < 14 && !this.collision.isFree(x, z, 1.6); r += 1) {
       const a = r * 2.4;
@@ -168,6 +173,7 @@ export class World {
     if (save.car) {
       for (const v of [...this.vehicles.list]) if (v.kind === 'parked' && !v.driver && v.distanceTo(x, z) < 6) this.vehicles.remove(v);
       const v = this.vehicles.spawn(save.car.type, save.car.paint, x, z, save.h);
+      if (save.car.custom) v.applyCustom(save.car.custom);
       this.placeInCar(v);
     }
     this.wanted.clear();
@@ -198,6 +204,12 @@ export class World {
       input = NO_INPUT;
       mouse = { dx: 0, dy: 0 };
       if (this.fx.t > FX_TIME) this._respawn();
+    }
+    this.customs.update(dt, input); // garage state machine reads the real keys, then freezes the player's input while the car is in the bay
+    this.police.sealed = this.customs.sealed;
+    if (this.customs.locked) {
+      input = NO_INPUT;
+      mouse = { dx: 0, dy: 0 };
     }
     if (input.pressed('KeyF')) this._toggleVehicle();
 
@@ -234,7 +246,9 @@ export class World {
   // Everything that runs once per rendered frame after the physics sub-steps.
   afterStep(dt, mouse) {
     const p = this.player;
+    this.customs.pin();
     this.rig.update(dt, p, mouse, this.collision);
+    this.customs.blendCamera(this.camera, this.rig);
     this.env.update(dt, this.camera, this.focusPoint);
     this.vehicles.cull(this.camera.position.x, this.camera.position.z);
 
@@ -290,6 +304,7 @@ export class World {
         this.promptProgress = ev.promptBar;
       }
     }
+    if (this.customs.prompt && !this.prompt) this.prompt = this.customs.prompt; // export pad / recall pad
   }
 
   // Blob shadows under everything that moves (one instanced draw call); cars beyond the shadow-map range rely on these alone.
@@ -334,7 +349,7 @@ export class World {
       if (other && pv.impact > 4 && other.kind === 'traffic') this.wanted.commit('hitCar');
       const cushion = pv.shield > 0 ? 0.35 : 1; // ramming the armored truck is meant to be repeatable
       pv.shield = Math.max(0, pv.shield - dt);
-      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4 * this.durability * cushion);
+      if (pv.impact > 6) pv.health = Math.max(0, pv.health - (pv.impact - 5) * 3.4 * this.durability * cushion * pv.dmgMul);
       if (pv.health <= 0) {
         pv.wrecked = true;
         this._startFx('wasted');

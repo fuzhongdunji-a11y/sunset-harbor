@@ -1,5 +1,6 @@
 // vehicles: arcade car physics (grip, drift, handbrake, wall and car collisions) and the manager that owns every car.
-import { CAR_TYPES, buildCarModel } from './vehicleModels.js';
+import { CAR_TYPES, buildCarModel, buildCustomBody, rimGeometry } from './vehicleModels.js';
+import { SWATCHES, RIMS, CHASSIS_TIERS, tunedTop, accelBonus, stepNitrous } from './customsCatalog.js';
 
 const IDLE_INPUT = { throttle: 0, steer: 0, hand: false };
 const CULL_FAR = 420; // beyond this a car is hidden (fog is nearly opaque by then)
@@ -54,7 +55,37 @@ export class Vehicle {
     this.wheels = model.wheels;
     this.wheelRadius = model.wheelRadius;
     this.lights = model.lights ?? null; // police light bar {red, blue}
+    this.topSpeed = this.type.maxSpeed; // raised by Solaris Customs engine tiers
+    this.custom = null; // Solaris Customs spec: {paint, rim, engine, chassis, n2o, n2oCharge, n2oCooldown, isBoosting}
+    this.dmgMul = 1; // crash damage multiplier from the chassis tier
+    this.ramMul = 1; // police ram impulse multiplier from the chassis tier
+    this.gripRecover = 1; // how fast lateral grip returns after a slide (chassis tier)
+    this.frozen = false; // pinned by the garage state machine (no physics)
+    this.swatch = -1; // paint swatch applied inside Solaris Customs (Export Board bonus)
+    this._customGeo = null;
     this._syncMesh();
+  }
+
+  // Fit a Solaris Customs spec {paint: swatch index or -1, rim, engine, chassis, n2o}: derived stats plus live paint / rim / aero geometry (no extra draw calls).
+  applyCustom(spec, keepCharge = true) {
+    const old = this.custom;
+    const c = (this.custom = { paint: spec.paint, rim: spec.rim, engine: spec.engine, chassis: spec.chassis, n2o: spec.n2o, n2oCharge: keepCharge && old ? old.n2oCharge : 1, n2oCooldown: 0, isBoosting: false, released: false });
+    this.topSpeed = tunedTop(this.type.maxSpeed, c.engine);
+    this.accelMultiplier = (this.type.accelMult ?? 1) * (1 + accelBonus(c.engine));
+    const ch = c.chassis > 0 ? CHASSIS_TIERS[c.chassis - 1] : null;
+    this.dmgMul = ch ? ch.dmg : 1;
+    this.ramMul = ch ? ch.ram : 1;
+    this.gripRecover = ch ? 1 + ch.grip : 1;
+    const body = this.chassis.children[0];
+    if (!this._baseGeo) this._baseGeo = body.geometry;
+    const paintHex = c.paint >= 0 ? SWATCHES[c.paint].hex : null;
+    const geo = buildCustomBody(this.typeKey, this._baseGeo, paintHex, RIMS[c.rim].hex, c.rim > 0);
+    body.geometry = geo;
+    if (this._customGeo) this._customGeo.dispose();
+    this._customGeo = geo;
+    const rims = rimGeometry(c.rim > 0 ? RIMS[c.rim].hex : null);
+    for (const wl of this.wheels) wl.spin.geometry = rims;
+    if (paintHex !== null) this.paint = paintHex;
   }
 
   get forward() {
@@ -126,6 +157,7 @@ export class Vehicle {
   }
 
   update(dt, collision, groundHeightAt) {
+    if (this.frozen) { this.impact = 0; this.contact = null; return this._syncMesh(); } // pinned inside the Solaris Customs bay
     if (this.airborne) return this._fly(dt, collision, groundHeightAt);
     // parked cars at rest skip the whole step
     if (!this.driver && this.vx === 0 && this.vz === 0 && Math.abs(this.speedF) < 1e-3 && !this.wake) return;
@@ -138,7 +170,13 @@ export class Vehicle {
     let vR = -this.vx * ch + this.vz * sh;
     const flat = this.puncturedTimer > 0;
     if (flat) this.puncturedTimer = Math.max(0, this.puncturedTimer - dt);
-    const topSpeed = flat ? T.maxSpeed * PUNCTURE.top : T.maxSpeed;
+    let topSpeed = flat ? this.topSpeed * PUNCTURE.top : this.topSpeed;
+    // Nitrous (Left Shift, player only): extra forward thrust and a temporary speed ceiling while the bottle burns
+    const cu = this.custom;
+    let n2o = null;
+    if (cu && driven && this.driver.isPlayer) n2o = stepNitrous(cu, dt, !!inp.boost, Math.abs(vF), inp.throttle, !!inp.hand && Math.atan2(Math.abs(vR), Math.max(Math.abs(vF), 1)) > 0.314);
+    else if (cu && cu.isBoosting) cu.isBoosting = false;
+    if (n2o && !flat) topSpeed += n2o.ceil;
 
     if (driven) {
       if (inp.throttle > 0) {
@@ -149,6 +187,7 @@ export class Vehicle {
           const launch = 1 + 0.4 * Math.max(0, 1 - Math.max(0, vF) / 8);
           const scale = this.driver.isPlayer ? 0.72 : 1; // the player's cars build speed over several seconds so the pull is felt; AI keeps its old pace
           vF += T.accel * this.accelMultiplier * scale * inp.throttle * launch * (1 - Math.pow(r, 1.25)) * dt;
+          if (n2o && !flat) vF += n2o.thrust * Math.max(0, Math.min(1, (topSpeed - vF) / 3)) * dt;
         }
       } else if (inp.throttle < 0) {
         if (vF > 0.5) vF = Math.max(0, vF - T.brake * (this.driver.isPlayer ? 0.62 : 1) * dt); // firm but not a wall: ~1.4 s from 100 km/h
@@ -166,7 +205,7 @@ export class Vehicle {
     }
     // grip eases back after a handbrake slide instead of snapping, so the car settles out of a drift
     const gripTarget = (driven ? (inp.hand ? 1.7 : 8.5 - 3 * Math.min(1, Math.abs(vF) / 36)) : 9) * (flat ? PUNCTURE.grip : 1);
-    this.grip += (gripTarget - this.grip) * Math.min(1, (gripTarget < this.grip ? 20 : 5) * dt);
+    this.grip += (gripTarget - this.grip) * Math.min(1, (gripTarget < this.grip ? 20 : 5 * this.gripRecover) * dt);
     this.slip = Math.abs(vR);
     vR *= Math.exp(-this.grip * dt);
 

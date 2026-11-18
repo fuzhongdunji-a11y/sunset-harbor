@@ -11,6 +11,7 @@ import { GameAudio } from './audio.js';
 import { startBench } from './bench.js';
 import { R_NEAR, R_FAR } from './signalIntercept.js';
 import { AirPursuit, setupAirPursuitShot } from './airpursuit.js';
+import { stageCustomsShot } from './customsShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -84,7 +85,8 @@ function drawMinimap() {
     boats: { ...world.boats.mapView, ...world.contraband.mapView },
     armored: world.armored.mapView,
     ambient: world.ambient.active?.mapIcon ?? null,
-    now: shot === 'airpursuit' ? air.time : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    customs: world.customs.mapView,
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -93,6 +95,7 @@ function drawMinimap() {
 if (shot) {
   // ?shot=airpursuit is built by airpursuit.js itself (it owns the helicopter, beam and strip staging); every other shot goes through shots.js
   if (shot === 'airpursuit') setupAirPursuitShot(world, air, hud, ui);
+  else if (shot === 'customs') stageCustomsShot(world, hud, ui); // Solaris Customs hero frame (customsShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
