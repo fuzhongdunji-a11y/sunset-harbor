@@ -254,7 +254,8 @@ export function buildPerson(look = PLAYER_LOOK) {
 }
 
 // A townsperson; variant picks the clothes/build, geometry is shared per variant.
+export const PED_VARIANTS = 40;
 export function buildPedestrian(variant = 0) {
-  const k = variant % 24;
+  const k = variant % PED_VARIANTS;
   return buildRig(lookFor(k), `ped${k}`, { headSeparate: false, castShadow: false });
 }

@@ -21,8 +21,8 @@ import { START_CASH } from './config.js';
 
 const TYPE_WEIGHTS = [['marlin', 0.3], ['pico', 0.2], ['vesper', 0.12], ['dune', 0.2], ['harborVan', 0.18]];
 const ENTER_RANGE = 2.6;
-const TRAFFIC_COUNT = 16;
-const PED_COUNT = 28;
+const TRAFFIC_COUNT = 20;
+const PED_COUNT = 35;
 const FX_TIME = 2.8; // length of the WASTED / BUSTED screen
 const NO_INPUT = { down: () => false, pressed: () => false };
 

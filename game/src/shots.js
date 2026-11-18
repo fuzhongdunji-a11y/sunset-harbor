@@ -38,7 +38,22 @@ export function prepareShot(name, { world, hud, ui }) {
     world.placeInCar(car);
     world.cash = 3850;
     world.rig.yaw = 0;
-    setMission(world, 3, 1);
+    // a street race in progress: gate 2 of the Costa Circuit straight ahead, clock running, sidewalks busy
+    setMission(world, 6, 1);
+    const gate = world.missions.mission.steps[1];
+    gate.x = 0;
+    gate.z = 20;
+    world.missions.timeLeft = 47;
+    const P = world.peds, ped = P.list;
+    const W1 = { i: 4, j: 1, sx: -1, sz: 1 }, W2 = { i: 4, j: 2, sx: -1, sz: -1 };
+    const E1 = { i: 4, j: 1, sx: 1, sz: 1 }, E2 = { i: 4, j: 2, sx: 1, sz: -1 };
+    const E3 = { i: 4, j: 2, sx: 1, sz: 1 }, E4 = { i: 4, j: 3, sx: 1, sz: -1 };
+    P.placeBetween(ped[3], W1, W2, 0.7); // walking pair (ped[4] follows)
+    P.placeBetween(ped[0], E2, E1, 0.45); // jogger
+    P.placeBetween(ped[1], E1, E2, 0.8);
+    P.placeBetween(ped[5], W2, W1, 0.35);
+    P.placeBetween(ped[2], E3, E4, 0.5);
+    P.placeBetween(ped[6], E3, E4, 0.75);
     run(world, 140, KEYS('KeyW'), hud);
     return;
   }
@@ -95,7 +110,7 @@ export function prepareShot(name, { world, hud, ui }) {
     world.rig.yaw = Math.PI + 0.3;
     world.rig.pitch = 0.12;
     const A = { i: 4, j: 3, sx: 1, sz: 1 }, B = { i: 4, j: 4, sx: 1, sz: -1 };
-    for (let k = 0; k < 6; k++) world.peds.placeBetween(world.peds.list[k], k % 2 ? A : B, k % 2 ? B : A, 0.3 + k * 0.08);
+    for (const k of [0, 1, 2, 3, 5, 6]) world.peds.placeBetween(world.peds.list[k], k % 2 ? A : B, k % 2 ? B : A, 0.3 + k * 0.08);
     run(world, 30, KEYS('KeyW', 'ShiftLeft'), hud);
     world.rig.snap(p, world.collision);
     run(world, 2, KEYS('KeyW', 'ShiftLeft'), hud);
@@ -109,11 +124,13 @@ export function prepareShot(name, { world, hud, ui }) {
     p.heading = Math.PI;
     world.rig.yaw = Math.PI + 0.12;
     world.rig.pitch = 0.22;
-    const A = { i: 4, j: 3, sx: 1, sz: 1 }, B = { i: 4, j: 4, sx: 1, sz: -1 };
+    const A = { i: 4, j: 3, sx: 1, sz: 1 }, B = { i: 4, j: 4, sx: 1, sz: -1 }; // the sidewalk ahead of the player (camera looks south)
     const ped = world.peds.list;
-    world.peds.placeBetween(ped[0], A, B, 0.25);
-    world.peds.placeBetween(ped[1], B, A, 0.62);
-    world.peds.placeBetween(ped[2], B, A, 0.7);
+    world.peds.placeBetween(ped[0], B, A, 0.5); // jogger coming toward us
+    world.peds.placeBetween(ped[1], B, A, 0.88);
+    world.peds.placeBetween(ped[2], B, A, 0.3);
+    world.peds.placeBetween(ped[3], B, A, 0.7); // walking pair (ped[4] follows)
+    world.peds.placeBetween(ped[5], A, B, 0.3);
     run(world, 44, KEYS('KeyW'), hud);
     world.rig.snap(p, world.collision);
     run(world, 2, KEYS('KeyW'), hud);

@@ -1,6 +1,6 @@
 // pedestrians: townsfolk walking the sidewalk loops, waiting for gaps in traffic, fleeing oncoming cars and getting knocked down.
 // People hop between sidewalk corners (4 per intersection); the population is recycled around the player to keep the count low.
-import { buildPedestrian } from './characters.js';
+import { buildPedestrian, PED_VARIANTS } from './characters.js';
 
 const OFF = 10.8; // sidewalk centre line distance from a road centre line
 const WALK = 1.45;
@@ -13,14 +13,47 @@ export class Pedestrians {
     this.rng = rng;
     this.groundHeightAt = groundHeightAt;
     this.list = [];
+    // Personalities by slot: joggers, loiterers, brisk commuters and walking pairs (leader n%7==3, companion n%7==4).
     for (let n = 0; n < count; n++) {
-      const model = buildPedestrian(Math.floor(rng() * 24));
+      const model = buildPedestrian((n * 7 + 3) % PED_VARIANTS);
       model.group.visible = false;
       scene.add(model.group);
-      this.list.push({
-        model, x: 0, z: 0, y: 0, heading: 0, state: 'walk', timer: 0, speed: WALK * rng.range(0.85, 1.2),
-        from: null, to: null, crossing: false, vx: 0, vz: 0, down: 0, active: false, fleeDx: 0, fleeDz: 0,
-      });
+      const slot = n % 7;
+      const speed = slot === 0 ? rng.range(2.7, 3.3) : slot === 2 ? WALK * rng.range(0.55, 0.7) : slot === 5 ? WALK * rng.range(1.25, 1.4) : WALK * rng.range(0.85, 1.2);
+      const p = {
+        model, x: 0, z: 0, y: 0, heading: 0, state: 'walk', timer: 0, speed,
+        from: null, to: null, crossing: false, vx: 0, vz: 0, down: 0, active: false, fleeDx: 0, fleeDz: 0, leader: null,
+      };
+      if (slot === 4 && n > 0) {
+        p.leader = this.list[n - 1];
+        p.speed = p.leader.speed;
+      }
+      this.list.push(p);
+    }
+  }
+
+  // A companion keeps pace beside its leader (one step behind, to the right) and copies the leader's crossing state.
+  _followLeader(p, dt) {
+    const l = p.leader, m = p.model;
+    const fx = Math.sin(l.heading), fz = Math.cos(l.heading);
+    const tx = l.x + fz * 0.95 - fx * 0.5, tz = l.z - fx * 0.95 - fz * 0.5;
+    let dx = tx - p.x, dz = tz - p.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 25) {
+      p.x = tx;
+      p.z = tz;
+      return;
+    }
+    p.crossing = l.crossing;
+    const moving = l.state === 'walk' && d > 0.12;
+    if (moving) {
+      const step = Math.min(d, (l.speed + d * 1.6) * dt);
+      p.x += (dx / d) * step;
+      p.z += (dz / d) * step;
+      p.heading += wrap(l.heading - p.heading) * Math.min(1, 8 * dt);
+      m.animate(dt, Math.min(l.speed + d, 3.2));
+    } else {
+      m.animate(dt, 0);
     }
   }
 
@@ -95,6 +128,7 @@ export class Pedestrians {
 
   populate(focus) {
     for (const p of this.list) this.place(p, focus, 20, 150);
+    for (const p of this.list) if (p.leader) this._followLeader(p, 0);
   }
 
   _pickNext(p, prev) {
@@ -222,6 +256,8 @@ export class Pedestrians {
           if (!this._trafficNear((a.x + b.x) / 2, (a.z + b.z) / 2, vehicles, 30)) p.state = 'walk';
           else p.timer = 0.5;
         }
+      } else if (p.leader && p.leader.active && p.leader.state !== 'down') {
+        this._followLeader(p, dt);
       } else {
         const t = this.cornerPos(p.to);
         const dx = t.x - p.x, dz = t.z - p.z;

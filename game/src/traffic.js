@@ -28,6 +28,18 @@ export class Traffic {
     return 'marlin';
   }
 
+  // Driver temperament: vans and pickups dawdle, the coupe runs hot, and about one in six sedans/hatches are in a hurry.
+  _pickCruise(type) {
+    const r = this.rng;
+    if (type === 'harborVan') return r.range(8, 11);
+    if (type === 'dune') return r.range(9, 13);
+    if (type === 'vesper') return r.range(13.5, 17.5);
+    const k = r();
+    if (k < 0.18) return r.range(7.5, 9.5); // cautious
+    if (k > 0.84) return r.range(15, 18); // in a hurry
+    return r.range(10, 14.5);
+  }
+
   // Find a free lane spot between minD and maxD metres from the focus.
   findSpot(focus, minD, maxD) {
     for (let t = 0; t < 40; t++) {
@@ -49,7 +61,7 @@ export class Traffic {
 
   spawnAt(i, j, d, x, z, type = this._pickType()) {
     const v = this.vm.spawn(type, this.rng.pick(PAINTS), x, z, DIRS[d].h, 'traffic');
-    const drv = new RoadDriver(v, this.net, this.rng, { cruise: this.rng.range(9.5, 14.5) });
+    const drv = new RoadDriver(v, this.net, this.rng, { cruise: this._pickCruise(type) });
     const along = (x - this.net.xs[i]) * DIRS[d].x + (z - this.net.zs[j]) * DIRS[d].z;
     drv.place(i, j, d, along);
     this.cars.push({ v, drv });

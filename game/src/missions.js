@@ -61,13 +61,74 @@ function scripted(index, world) {
           { kind: 'reach', x: -240, z: -200, r: 8, needs: 'any', requireClean: true, text: 'Shake the police, then reach the safehouse' },
         ],
       };
+    case 6:
+      return raceMission('Costa Circuit', 1800, [[-240, -200], [-80, -200], [80, -200], [240, -200], [240, 40], [80, 40], [-80, 40], [-240, 40]], world, 'Street race');
+    case 7:
+      return patrolMission('Seaside Patrol', 1400, [[-160, 200], [0, 200], [160, 200], [240, 280], [-80, 280]], world);
     default:
       return null;
   }
 }
 
-// Endless courier jobs: deterministic per index so a reload gives the same order.
+const RACE_PINK = 0xff5fa2;
+const PATROL_GREEN = 0x62e08a;
+
+// Checkpoint race: drive through every gate in order. One clock runs the whole race; each gate adds time back.
+function raceMission(title, reward, spots, world, label) {
+  const steps = spots.map((s, i) => {
+    const leg = i === 0 ? 0 : dist(spots[i - 1], s);
+    const first = i === 0;
+    return {
+      kind: 'reach', x: s[0], z: s[1], r: 9, needs: 'car', color: RACE_PINK,
+      time: first ? Math.round(40 + dist([world.player?.px ?? 0, world.player?.pz ?? 0], s) / 8) : undefined, bonus: first ? 0 : Math.round(7 + leg / 9),
+      text: `${label}: gate ${i + 1}/${spots.length} in ${world.layout.districtAt(s[0], s[1])}`,
+    };
+  });
+  return { title, reward, steps, race: true };
+}
+
+// Timed patrol: check in at every post on foot or by car before the shift clock runs out.
+function patrolMission(title, reward, spots, world) {
+  let total = 0;
+  for (let i = 1; i < spots.length; i++) total += dist(spots[i - 1], spots[i]);
+  const steps = spots.map((s, i) => ({
+    kind: 'reach', x: s[0], z: s[1], r: 7, needs: 'any', color: PATROL_GREEN,
+    text: `Patrol post ${i + 1}/${spots.length}: ${world.layout.districtAt(s[0], s[1])}`,
+  }));
+  steps[0].time = Math.round(40 + total / 7);
+  return { title, reward, steps };
+}
+
+// Order spots into a loop by always visiting the nearest unvisited one.
+function loopFrom(rng, n, minLeg) {
+  const pool = COURIER_SPOTS.slice();
+  const out = [pool.splice(rng.int(0, pool.length - 1), 1)[0]];
+  while (out.length < n) {
+    const last = out[out.length - 1];
+    pool.sort((a, b) => dist(a, last) - dist(b, last));
+    const k = pool.findIndex((p) => dist(p, last) >= minLeg);
+    out.push(pool.splice(k < 0 ? 0 : k, 1)[0]);
+  }
+  return out;
+}
+
+// Endless jobs after the scripted chain, in a repeating cycle: courier, checkpoint race, patrol.
 function generated(index, world) {
+  const n = index - 8;
+  const kind = n % 3;
+  if (kind === 1) {
+    const rng = makeRng(index * 331 + 17);
+    return raceMission(`Circuit Race #${Math.floor(n / 3) + 1}`, 1500 + Math.floor(n / 3) * 100, loopFrom(rng, 6, 100), world, 'Street race');
+  }
+  if (kind === 2) {
+    const rng = makeRng(index * 463 + 9);
+    return patrolMission(`Harbor Patrol #${Math.floor(n / 3) + 1}`, 1200 + Math.floor(n / 3) * 100, loopFrom(rng, 4, 80), world);
+  }
+  return courier(index, n, world);
+}
+
+// Courier jobs: deterministic per index so a reload gives the same order.
+function courier(index, n, world) {
   const rng = makeRng(index * 977 + 5);
   const a = COURIER_SPOTS[rng.int(0, COURIER_SPOTS.length - 1)];
   let b = a;
@@ -75,8 +136,8 @@ function generated(index, world) {
   const d = dist(a, b);
   const area = (p) => world.layout.districtAt(p[0], p[1]);
   return {
-    title: `Courier Job #${index - 5}`,
-    reward: Math.round((350 + d * 1.7 + (index - 6) * 40) / 10) * 10,
+    title: `Courier Job #${Math.floor(n / 3) + 1}`,
+    reward: Math.round((350 + d * 1.7 + Math.floor(n / 3) * 40) / 10) * 10,
     steps: [
       { kind: 'reach', x: a[0], z: a[1], r: 5.5, needs: 'any', text: `Pick up the package in ${area(a)}` },
       { kind: 'reach', x: b[0], z: b[1], r: 6, needs: 'car', time: Math.round(30 + d / 7.5), text: `Deliver it to ${area(b)}` },
@@ -130,6 +191,7 @@ export class MissionTracker {
   _enterStep() {
     const s = this.step;
     if (s.time) this.timeLeft = s.time;
+    else if (s.bonus && this.timeLeft !== null) this.timeLeft += s.bonus;
     const c = s.color ?? GOLD;
     this.beamMat.color.setHex(c);
     this.ringMat.color.setHex(c);

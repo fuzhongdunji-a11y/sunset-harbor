@@ -83,6 +83,14 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - 性能（perf.mjs 25秒 640x360、swiftshader）: draw call 平均 110→101、最大 182→208。三角形 約121k→148k。render 呼び出し CPU 42→120ms（ソフトウェアGLの律速で実機の値ではない）。draw call は目標（110前後、+20%まで）内。
 - スクショ4枚を撮り直し全て目視確認（人物は関節・服・髪が見え棒人間ではない、看板・日よけ・接地影あり）。shoot.mjs errors/外部リクエストなし、`main.ts` 成功、game/ 37 ファイル 約1.0MB。
 
+**improve-batch1 記録（街とミッションの密度）**:
+- 歩行者: 35人（`PED_COUNT`）、外見 40 種（`PED_VARIANTS`、`(n*7+3)%40`）。スロット `n%7` で性格: 0=ジョガー(2.7〜3.3m/s)、2=のんびり、5=早足、3+4=並んで歩くペア（4 は 3 の `leader` に追従し、横断状態も共有。`_followLeader`）。ペアのリーダーが倒れる/非アクティブなら通常の単独歩行に戻る。
+- 交通: 20台（`TRAFFIC_COUNT`）。`Traffic._pickCruise` で気質付き（バン/ピックアップは遅め、Vesper は速め、セダン/ハッチは慎重 18% / 急ぎ 16%）。
+- ミッション: 走行中ずっと動く1つの時計＋`bonus`（ゲート通過ごとの加算秒）を `MissionTracker._enterStep` に追加。スクリプト 6=Costa Circuit（8ゲートのチェックポイントレース、ピンク色マーカー、車必須）、7=Seaside Patrol（5か所の巡回、徒歩/車可、緑マーカー）。以降の自動生成は `index-8` を3周期（Courier Job → Circuit Race → Harbor Patrol）。セーブは完了数のみなので互換。
+- ショット: `drive` を進行中のレース（ゲート2/8・0:44）＋歩道の人々、`walk` をペア/ジョガー込みの歩道に変更。4枚とも目視確認済み。
+- 性能（perf.mjs 25秒 640x360）: draw call 平均 101→114（予算 110+20% 以内）、最大 208→251、三角形 約152k。shoot.mjs errors なし、`main.ts` 成功。
+- 注意: `shots.js` のペア従者は peds.list の index%7==4（4, 11, …）なので placeBetween で配置しない。
+
 ## 操作
 WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。
 
