@@ -30,6 +30,8 @@ export function buildScenery(layout) {
   for (const c of layout.containers) addContainerStack(b, c, layout.docks[1].top);
   addCrane(b, layout);
   for (const boat of layout.boats) addBoat(b, boat);
+  for (const wh of layout.warehouses) addWarehouse(b, wh, layout.docks[1].top);
+  addDockLamps(b, layout);
   b.setTransform(null);
 
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
@@ -152,10 +154,68 @@ function addBoat(b, boat) {
   b.setTransform(placement(boat.x, -0.15, boat.z, boat.rot));
   const L = boat.len / 2;
   b.slab([-0.9, -L * 0.7, 0.9, L * 0.7], [-1.6, -L, 1.6, L], -0.8, 0.9, { side: boat.color, top: 0xf4f1ea });
-  b.box(-1.0, 0.9, -L * 0.3, 1.0, 2.2, L * 0.25, 0xf4f1ea);
-  b.box(-1.05, 1.5, -L * 0.3 + 0.1, 1.05, 1.9, L * 0.25 - 0.1, 0x2c4a63);
-  b.box(-0.05, 2.2, 0, 0.05, 5.2, 0.1, 0xdddddd);
+  b.box(-1.62, 0.5, -L * 0.98, 1.62, 0.62, L * 0.98, 0xf4f1ea); // gunwale stripe
+  if (boat.sail) {
+    // sailboat: tall mast, boom, triangular main and fore sails, stay lines
+    const mast = L * 1.15 + 3.5;
+    b.box(-0.07, 0.9, L * 0.15 - 0.07, 0.07, 0.9 + mast, L * 0.15 + 0.07, 0xe8e8e8);
+    b.box(-0.05, 1.7, -L * 0.7, 0.05, 1.85, L * 0.15, 0xe8e8e8); // boom
+    b.tri([0, 1.9, L * 0.15 - 0.1], [0, 0.9 + mast - 0.2, L * 0.15 - 0.1], [0, 1.9, -L * 0.7], boat.sail);
+    b.tri([0, 0.9 + mast - 0.2, L * 0.15 - 0.1], [0, 1.9, L * 0.15 - 0.1], [0, 1.9, -L * 0.7], boat.sail);
+    b.tri([0, 1.6, L * 0.2], [0, 0.9 + mast - 0.8, L * 0.17], [0, 1.0, L * 0.95], 0xfff1d0);
+    b.tri([0, 0.9 + mast - 0.8, L * 0.17], [0, 1.6, L * 0.2], [0, 1.0, L * 0.95], 0xfff1d0);
+    b.box(-0.03, 0.9 + mast, L * 0.15 - 0.08, 0.03, 0.9 + mast + 0.3, L * 0.15 + 0.08, 0xd9392b); // masthead pennant
+    b.box(-0.03, 0.9, L * 0.15 - 0.03, 0.03, 0.9 + mast, L * 0.15 + 0.03, 0xe8e8e8);
+    b.box(-0.9, 0.9, -L * 0.5, 0.9, 1.35, -L * 0.1, 0xf4f1ea); // low cabin
+    b.box(-0.92, 1.0, -L * 0.45, 0.92, 1.25, -L * 0.15, 0x2c4a63);
+  } else {
+    b.box(-1.0, 0.9, -L * 0.3, 1.0, 2.2, L * 0.25, 0xf4f1ea);
+    b.box(-1.05, 1.5, -L * 0.3 + 0.1, 1.05, 1.9, L * 0.25 - 0.1, 0x2c4a63);
+    b.box(-0.05, 2.2, 0, 0.05, 5.2, 0.1, 0xdddddd); // radio mast
+    b.box(-0.3, 2.2, -0.12, 0.3, 2.28, 0.0, 0xdddddd);
+  }
   b.setTransform(null);
+}
+
+// Corrugated-roof harbour shed: walls, gabled roof, roller doors, and a small office door.
+function addWarehouse(b, wh, top) {
+  const { x0, z0, x1, z1, h } = wh;
+  const mid = (x0 + x1) / 2;
+  b.box(x0, top, z0, x1, top + h, z1, { side: wh.color, top: wh.roof });
+  // gabled roof: two sloped panels along x with a ridge, plus ribs for a corrugated look
+  const ridge = top + h + 2.6;
+  b.quad([x0 - 0.5, top + h, z0 - 0.6], [x1 + 0.5, top + h, z0 - 0.6], [x1 + 0.5, ridge, (z0 + z1) / 2], [x0 - 0.5, ridge, (z0 + z1) / 2], wh.roof, [0, 1, -0.5]);
+  b.quad([x0 - 0.5, top + h, z1 + 0.6], [x1 + 0.5, top + h, z1 + 0.6], [x1 + 0.5, ridge, (z0 + z1) / 2], [x0 - 0.5, ridge, (z0 + z1) / 2], wh.roof, [0, 1, 0.5]);
+  for (let x = x0; x < x1; x += 2) {
+    b.box(x, top + h + 0.02, z0 - 0.62, x + 0.14, top + h + 0.1, z0 - 0.5, 0x3b3f47);
+  }
+  b.tri([x0 - 0.5, top + h, z0 - 0.02], [x0 - 0.5, top + h, z1 + 0.02], [x0 - 0.5, ridge, (z0 + z1) / 2], wh.color); // gable ends
+  b.tri([x1 + 0.5, top + h, z1 + 0.02], [x1 + 0.5, top + h, z0 - 0.02], [x1 + 0.5, ridge, (z0 + z1) / 2], wh.color);
+  b.box(mid - 0.25, ridge - 0.02, z0 - 0.2, mid + 0.25, ridge + 0.25, z1 + 0.2, 0x3b3f47); // ridge cap
+  // roller doors on the land-facing wall, painted stripes along the base
+  const n = Math.max(2, Math.floor((x1 - x0) / 13));
+  for (let k = 0; k < n; k++) {
+    const dx = x0 + ((k + 0.5) * (x1 - x0)) / n;
+    b.box(dx - 2.2, top, z0 - 0.08, dx + 2.2, top + 4.2, z0 + 0.02, 0x6b7078);
+    for (let y = top + 0.4; y < top + 4.2; y += 0.5) b.box(dx - 2.2, y, z0 - 0.1, dx + 2.2, y + 0.06, z0 - 0.06, 0x555a61);
+    b.box(dx - 2.4, top + 4.2, z0 - 0.1, dx + 2.4, top + 4.45, z0 - 0.02, 0xf2c230); // warning lintel
+  }
+  b.box(x0, top, z0 - 0.04, x1, top + 0.5, z0 + 0.0, 0xf2c230);
+  for (let x = x0 + 3; x < x1 - 2; x += 6) b.box(x - 0.8, top + h - 1.2, z0 - 0.05, x + 0.8, top + h - 0.6, z0 + 0.0, 0x2c4a63); // clerestory windows
+}
+
+// Tall lamp posts along the container yard and the pier so the harbour reads at a distance.
+function addDockLamps(b, layout) {
+  const lamps = [];
+  const pier = layout.docks[0];
+  for (let z = pier.z0 + 12; z < pier.z1 - 6; z += 20) lamps.push([pier.x0 + 0.3, z, pier.top], [pier.x1 - 0.3, z + 10, pier.top]);
+  const yard = layout.docks[1];
+  for (let x = yard.x0 + 8; x < yard.x1 - 4; x += 28) lamps.push([x, yard.z0 + 3, yard.top]);
+  for (const [x, z, y] of lamps) {
+    b.box(x - 0.07, y, z - 0.07, x + 0.07, y + 5.2, z + 0.07, 0x3b3f47);
+    b.box(x - 0.45, y + 5.2, z - 0.2, x + 0.45, y + 5.35, z + 0.2, 0x3b3f47);
+    b.box(x - 0.38, y + 5.08, z - 0.15, x + 0.38, y + 5.2, z + 0.15, 0xfff0b0);
+  }
 }
 
 function buildHills(rng) {

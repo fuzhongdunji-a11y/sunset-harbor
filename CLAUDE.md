@@ -77,6 +77,12 @@ Rockstar Games / GTA シリーズ他の名前・ロゴ・キャラクター・�
 - 最終確認: `MAKEFUN_OUTPUT_DIR=/tmp/gta-out node main.ts` 成功、2回出力が同一。game/ は 35 ファイル・約0.92MB、index.html 3.2KB、シンボリックリンクなし、`http(s):` の外部参照なし。shoot.mjs は errors/外部リクエストなし。
 - **未了**: README の make.fun バッジ（形式がリポジトリ内に記載なし。仕様が分かり次第 README 先頭に追加）。実機での fps 計測。
 
+**Stage 4 完了記録（グラフィック強化）**:
+- 経緯: 最初の Stage 4 セッションが実行環境の再起動で中断（recording は封印）。未コミットの変更が残っていたため、再開セッションで全ファイルの構文（`node --check`）と配線（world.js → ContactShadows、cityBuilder.js → signage.js、pedestrians.js → setDetail）を精査。不完全な編集・構文エラーは無く、追加修正なしで shoot.mjs/perf.mjs が通った。
+- 内容: 人物を関節モデル化（頭・首・胴・上下腕・上下脚、肘/膝、歩行/走行/轢かれアニメ、近距離のみ肘膝ありの `setDetail` LOD）、車両ディテール（`vehicleModels.js`）、看板アトラス `signage.js`（店名 Canvas 生成）と建物テクスチャ、`contactShadows.js`（InstancedMesh のブロブ影 1 draw call）、港/景観の追加（`scenery.js`）、空・光・フォグ（`config.js` SKY、`environment.js`）、`design/art-bible.md`。
+- 性能（perf.mjs 25秒 640x360、swiftshader）: draw call 平均 110→101、最大 182→208。三角形 約121k→148k。render 呼び出し CPU 42→120ms（ソフトウェアGLの律速で実機の値ではない）。draw call は目標（110前後、+20%まで）内。
+- スクショ4枚を撮り直し全て目視確認（人物は関節・服・髪が見え棒人間ではない、看板・日よけ・接地影あり）。shoot.mjs errors/外部リクエストなし、`main.ts` 成功、game/ 37 ファイル 約1.0MB。
+
 ## 操作
 WASD 移動/運転、Shift 走る、Space ジャンプ/ハンドブレーキ、F 乗降、マウス視点（クリックでポインタロック）、Esc/P ポーズ。
 

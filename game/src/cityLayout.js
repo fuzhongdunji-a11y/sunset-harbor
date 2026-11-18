@@ -5,12 +5,15 @@ import { makeRng } from './rng.js';
 const PASTELS = [0xf6c9b8, 0xf3e0b5, 0xbfe3dc, 0xf2b8c6, 0xd8d2f0, 0xfff1d0, 0xa9d6e5, 0xf7d9a0, 0xe9a89b, 0xcfe8b8];
 const TOWER_TONES = [0xcfe4ee, 0xe8eef2, 0xb7d0e0, 0xf2e8dc, 0xd9c7b8, 0xc3d9d4];
 const SHOP_COLORS = [0xe4572e, 0x17a398, 0xf2a541, 0x2e86ab, 0xc1366b, 0x6a4c93, 0x3d405b];
+const ACCENTS = [0xfff1d0, 0xe9806e, 0x2e86ab, 0xf2a541, 0x17a398, 0xf4f1ea];
+const AWNINGS = [[0xe4572e, 0xf4f1ea], [0x17a398, 0xf4f1ea], [0x2e86ab, 0xf4f1ea], [0xf2a541, 0xf4f1ea], [0xc1366b, 0xf4f1ea], [0x3d8f4f, 0xf4f1ea]];
 const PARK_BLOCKS = new Set(['1,1', '6,2', '2,4', '5,5', '4,1']);
 
 export const DISTRICTS = { downtown: 'Downtown Costa', old: 'Old Quarter', palmera: 'Palmera Heights', marina: 'Marina Row', beach: 'Serena Beach', docks: 'Harbor Docks', pier: 'Lantern Pier' };
 
 export function generateCity(seed = 1) {
   const rng = makeRng(seed * 7919 + 13);
+  const decor = makeRng(seed * 313 + 9); // separate stream: facade/sign/roof choices never shift the main layout
   const { period: P, road: W, sidewalk: SW, blocksX: NX, blocksZ: NZ, halfX, halfZ, blockSize } = WORLD;
   const xs = [];
   const zs = [];
@@ -134,7 +137,11 @@ export function generateCity(seed = 1) {
       podium: tower ? rng.pick([9.6, 12.8, 16]) : 0,
       inset: rng.range(0.14, 0.24),
       units: [],
+      facade: 0, accent: decor.pick(ACCENTS), awning: decor.pick(AWNINGS), hasAwning: decor() < 0.55,
+      sign: decor.int(0, 15), roofKind: decor.pick(['tank', 'solar', 'plain', 'tank', 'vent']), roofSeed: decor.int(1, 99999),
     };
+    const lowrise = district === DISTRICTS.old || district === DISTRICTS.marina;
+    b.facade = tower ? (decor() < 0.65 ? 1 : 0) : lowrise ? (decor() < 0.75 ? 2 : 0) : (decor() < 0.4 ? 2 : 0);
     const nUnits = rng.int(1, 3);
     for (let k = 0; k < nUnits; k++) {
       const w = rng.range(2.5, 5);
@@ -197,11 +204,23 @@ export function generateCity(seed = 1) {
 
   colliders.push({ type: 'circle', x: -110, z: 419, r: 2.5, h: 18 });
 
+  // Warehouses at the back of the container yard (clear of the crane aisle x 166..190).
+  const warehouses = [
+    { x0: 108, z0: 388, x1: 160, z1: 400, h: 7.5, color: 0xd9c9a3, roof: 0xb5442f, sign: 16 },
+    { x0: 196, z0: 388, x1: 252, z1: 400, h: 8.5, color: 0xa9c9d4, roof: 0x4d6a86, sign: 17 },
+  ];
+  for (const wh of warehouses) colliders.push({ type: 'aabb', x0: wh.x0, z0: wh.z0, x1: wh.x1, z1: wh.z1, h: wh.h + 2 });
+
   const boats = [
-    { x: -124, z: 372, rot: 0.1, color: 0xf4f1ea, len: 11 },
+    { x: -124, z: 372, rot: 0.1, color: 0xf4f1ea, len: 11, sail: 0xfff8e6 },
     { x: -96, z: 392, rot: -0.05, color: 0xe4572e, len: 9 },
-    { x: -125, z: 410, rot: 0.08, color: 0x2e86ab, len: 8 },
+    { x: -125, z: 410, rot: 0.08, color: 0x2e86ab, len: 8, sail: 0xf2a541 },
     { x: 150, z: 412, rot: 0.2, color: 0xf2a541, len: 12 },
+    { x: -97, z: 356, rot: 0.04, color: 0x17a398, len: 10, sail: 0xffffff },
+    { x: -96, z: 414, rot: -0.1, color: 0xf4f1ea, len: 9, sail: 0xe4572e },
+    { x: -124, z: 362, rot: -0.06, color: 0x1d3f73, len: 7 },
+    { x: 126, z: 418, rot: 0.1, color: 0xf4f1ea, len: 11, sail: 0xfff1d0 },
+    { x: 214, z: 420, rot: -0.15, color: 0xc1366b, len: 9, sail: 0xffffff },
   ];
 
   const start = { x: 11.6, z: 4, heading: Math.PI };
@@ -219,7 +238,7 @@ export function generateCity(seed = 1) {
   }
 
   return {
-    seed, xs, zs, blocks, buildings, palms, lamps, umbrellas, benches, containers, craneLegs, boats, docks,
+    seed, xs, zs, blocks, buildings, palms, lamps, umbrellas, benches, containers, craneLegs, boats, docks, warehouses,
     slots, colliders, bounds, start, starterCar, districtAt, groundHeightAt,
     spawnRng: makeRng(seed * 131 + 7),
   };

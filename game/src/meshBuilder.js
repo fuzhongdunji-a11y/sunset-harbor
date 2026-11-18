@@ -34,7 +34,8 @@ export class MeshBuilder {
     return this;
   }
 
-  tri(a, b, c, color) {
+  // `uvs` (optional): three [u, v] pairs that override the generated UVs.
+  tri(a, b, c, color, uvs) {
     const col = toColor(color);
     let pa = a, pb = b, pc = c;
     if (this.matrix) {
@@ -55,11 +56,15 @@ export class MeshBuilder {
       ny = 1;
       nz = 0;
     }
+    let vi = 0;
     for (const p of [pa, pb, pc]) {
       this.pos.push(p[0], p[1], p[2]);
       this.nrm.push(nx, ny, nz);
       this.col.push(col.r, col.g, col.b);
-      if (this.uvTile > 0) {
+      if (uvs) {
+        this.uv.push(uvs[vi][0], uvs[vi][1]);
+        vi++;
+      } else if (this.uvTile > 0) {
         const u = Math.abs(nx) > Math.abs(nz) ? p[2] : p[0];
         this.uv.push(u / this.uvTile, p[1] / this.uvTile);
       } else {
@@ -73,16 +78,19 @@ export class MeshBuilder {
     return [_t.x, _t.y, _t.z];
   }
 
-  // Quad a-b-c-d; `hint` is an approximate outward direction used to fix the winding.
-  quad(a, b, c, d, color, hint) {
+  // Quad a-b-c-d; `hint` is an approximate outward direction used to fix the winding; `uv` = four [u, v] pairs matching a, b, c, d.
+  quad(a, b, c, d, color, hint, uv) {
     if (hint) {
       const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
       const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
       const n0 = uy * vz - uz * vy, n1 = uz * vx - ux * vz, n2 = ux * vy - uy * vx;
-      if (n0 * hint[0] + n1 * hint[1] + n2 * hint[2] < 0) [b, d] = [d, b];
+      if (n0 * hint[0] + n1 * hint[1] + n2 * hint[2] < 0) {
+        [b, d] = [d, b];
+        if (uv) uv = [uv[0], uv[3], uv[2], uv[1]];
+      }
     }
-    this.tri(a, b, c, color);
-    this.tri(a, c, d, color);
+    this.tri(a, b, c, color, uv && [uv[0], uv[1], uv[2]]);
+    this.tri(a, c, d, color, uv && [uv[0], uv[2], uv[3]]);
   }
 
   // Frustum between a bottom rect and a top rect ([x0, z0, x1, z1]); colors: Color | {side, top, bottom}.

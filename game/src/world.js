@@ -4,6 +4,7 @@ import { generateCity } from './cityLayout.js';
 import { buildCity } from './cityBuilder.js';
 import { buildScenery } from './scenery.js';
 import { Environment } from './environment.js';
+import { ContactShadows } from './contactShadows.js';
 import { Collision } from './collision.js';
 import { VehicleManager } from './vehicles.js';
 import { PAINTS } from './vehicleModels.js';
@@ -33,6 +34,7 @@ export class World {
     scene.add(buildCity(this.layout, seed), buildScenery(this.layout));
     this.env = new Environment(scene);
     this.collision = new Collision(this.layout.colliders, this.layout.bounds);
+    this.shadows = new ContactShadows(scene);
     this.vehicles = new VehicleManager(scene, this.collision, this.layout.groundHeightAt);
     this._spawnParkedCars();
     const s = this.layout.start;
@@ -194,6 +196,7 @@ export class World {
         this.notify('Pedestrian hit!', 'warn');
       }
     }
+    this._contactShadows();
     this._playerCrimesAndDamage();
     this.wanted.update(dt, this.police.nearest);
 
@@ -218,6 +221,25 @@ export class World {
       const car = this._enterCandidate();
       if (car) this.prompt = `[F] ${this._enterVerb(car)} the ${car.type.name}`;
     }
+  }
+
+  // Blob shadows under everything that moves (one instanced draw call); cars beyond the shadow-map range rely on these alone.
+  _contactShadows() {
+    const sh = this.shadows;
+    const cam = this.camera.position;
+    sh.begin();
+    for (const v of this.vehicles.list) {
+      if (!v.group.visible || (v.x - cam.x) ** 2 + (v.z - cam.z) ** 2 > 260 * 260) continue;
+      sh.add(v.x, v.y, v.z, v.type.wid * 0.62, v.type.len * 0.6, v.h);
+    }
+    const p = this.player;
+    if (!p.inCar && p.person.group.visible) sh.add(p.x, p.y, p.z, 0.55, 0.5, p.heading);
+    for (const q of this.peds.list) {
+      if (!q.active || !q.model.group.visible) continue;
+      if (q.state === 'down') sh.add(q.x, q.y, q.z, 0.7, 1.0, q.heading);
+      else sh.add(q.x, q.y, q.z, 0.5, 0.45, q.heading);
+    }
+    sh.end();
   }
 
   _enterCandidate() {

@@ -165,6 +165,7 @@ export class Pedestrians {
       }
       const m = p.model;
       m.group.visible = dFocus < 150;
+      m.setDetail(dFocus < 45);
       if (!m.group.visible && p.state !== 'walk') p.state = 'walk';
       if (!m.group.visible) continue; // out of sight: frozen until the player comes back or they are recycled
 

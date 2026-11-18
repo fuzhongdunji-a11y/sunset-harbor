@@ -13,9 +13,9 @@ export class Environment {
     scene.background = new THREE.Color(SKY.horizon);
     scene.fog = new THREE.Fog(SKY.fog, 320, 1700);
 
-    this.hemi = new THREE.HemisphereLight(0xcfe8ff, 0xf2dcb0, 1.55);
+    this.hemi = new THREE.HemisphereLight(0xd6ebff, 0xf6d9a8, 1.5);
     scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight(0xfff0d2, 2.7);
+    this.sun = new THREE.DirectionalLight(0xffe2b0, 2.9);
     this.sun.castShadow = true;
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -95;
@@ -42,11 +42,14 @@ export class Environment {
     const pos = geo.attributes.position;
     const colors = [];
     const hor = new THREE.Color(SKY.horizon);
+    const mid = new THREE.Color(SKY.mid);
     const top = new THREE.Color(SKY.zenith);
     const c = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       const t = Math.min(1, Math.max(0, pos.getY(i) / 2100));
-      c.copy(hor).lerp(top, Math.pow(t, 0.65));
+      // three-stop gradient: cream horizon -> light sky -> deep blue zenith
+      if (t < 0.28) c.copy(hor).lerp(mid, Math.pow(t / 0.28, 0.7));
+      else c.copy(mid).lerp(top, Math.pow((t - 0.28) / 0.72, 0.8));
       colors.push(c.r, c.g, c.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -58,8 +61,9 @@ export class Environment {
   _buildSunDisc() {
     const g = new THREE.Group();
     const core = new THREE.Mesh(new THREE.SphereGeometry(60, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfffbe6, fog: false }));
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(150, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfff1c0, fog: false, transparent: true, opacity: 0.28, depthWrite: false }));
-    g.add(core, glow);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(150, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a0, fog: false, transparent: true, opacity: 0.3, depthWrite: false }));
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(330, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffd78a, fog: false, transparent: true, opacity: 0.12, depthWrite: false }));
+    g.add(core, glow, halo);
     return g;
   }
 
@@ -136,9 +140,10 @@ export class Environment {
     geo.setIndex(idx);
     geo.computeBoundingSphere();
     geo.boundingSphere.radius = 4000;
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nx * nz * 3), 3));
     this.seaGeo = geo;
     this.seaBase = pos.slice();
-    this.sea = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color: 0x1fb0c4, specular: 0xfff4d0, shininess: 70, flatShading: true, transparent: true, opacity: 0.94 }));
+    this.sea = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color: 0xffffff, vertexColors: true, specular: 0xfff0c8, shininess: 90, flatShading: true, transparent: true, opacity: 0.95 }));
     this.sea.receiveShadow = true;
     this.scene.add(this.sea);
     // foam line along the shore
@@ -153,13 +158,24 @@ export class Environment {
     this.time += dt;
     const t = this.time;
     const p = this.seaGeo.attributes.position;
+    const col = this.seaGeo.attributes.color;
     const base = this.seaBase;
+    const shoreZ = WORLD.shoreZ;
     for (let i = 0; i < p.count; i++) {
       const x = base[i * 3], z = base[i * 3 + 2];
       const near = Math.abs(x) < 560 && z < 1000;
-      p.array[i * 3 + 1] = near ? -0.5 + Math.sin(x * 0.045 + t * 0.9) * 0.16 + Math.sin(z * 0.06 - t * 1.25 + x * 0.02) * 0.2 : -0.5;
+      const wave = near ? Math.sin(x * 0.045 + t * 0.9) * 0.16 + Math.sin(z * 0.06 - t * 1.25 + x * 0.02) * 0.2 : 0;
+      p.array[i * 3 + 1] = -0.5 + wave;
+      // turquoise shallows fading to deep blue, lighter wave crests, and glints that twinkle across the water
+      const depth = Math.min(1, Math.max(0, (z - shoreZ) / 260));
+      const crest = Math.max(0, wave) * 1.4;
+      const spark = near ? Math.max(0, Math.sin(x * 0.83 + t * 2.7) * Math.sin(z * 0.61 - t * 2.1 + x * 0.3)) ** 6 * 1.7 : 0;
+      col.array[i * 3] = 0.1 + (0.02 - 0.1) * depth + crest * 0.5 + spark;
+      col.array[i * 3 + 1] = 0.72 + (0.42 - 0.72) * depth + crest * 0.5 + spark;
+      col.array[i * 3 + 2] = 0.8 + (0.7 - 0.8) * depth + crest * 0.4 + spark;
     }
     p.needsUpdate = true;
+    col.needsUpdate = true;
     this.foam.material.opacity = 0.45 + Math.sin(t * 1.3) * 0.15;
     this.cloudMesh.position.x = Math.sin(t * 0.02) * 300;
     this.sky.position.copy(camera.position);

@@ -15,4 +15,5 @@ WORLD.halfZ = (WORLD.blocksZ * WORLD.period) / 2;
 export const HEIGHTS = { ground: 0, road: 0.04, mark: 0.08, sidewalk: 0.16 };
 
 export const START_CASH = 1250;
-export const SKY = { horizon: 0xcdeaf6, zenith: 0x3d8fdc, fog: 0xcdeaf6 };
+// Sunlit palette: warm cream haze at the horizon, clear blue overhead; fog matches the horizon so distance dissolves into gold.
+export const SKY = { horizon: 0xf7e0bd, mid: 0x8cc8f0, zenith: 0x2f7fd6, fog: 0xf0dcc0 };

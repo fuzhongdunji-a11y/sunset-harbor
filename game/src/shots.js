@@ -1,4 +1,4 @@
-// shots: deterministic ?shot=start|drive|chase|walk scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
+// shots: deterministic ?shot=start|drive|chase|walk|harbor|marina|people scenes for screenshots. Builds the situation, settles the simulation, then main.js renders once.
 const KEYS = (...codes) => ({
   down: (...c) => c.some((k) => codes.includes(k)),
   pressed: () => false,
@@ -68,6 +68,37 @@ export function prepareShot(name, { world, hud, ui }) {
     world.rig.pitch = 0.2;
     world.rig.snap(world.player, world.collision);
     run(world, 2, KEYS(), hud);
+    return;
+  }
+
+  // on foot on the aisle under the container crane (harbor) or at the root of Lantern Pier (marina), looking south
+  if (name === 'harbor' || name === 'marina') {
+    const p = world.player;
+    p.x = name === 'harbor' ? 178 : -110;
+    p.z = name === 'harbor' ? 343 : 349;
+    p.heading = 0;
+    world.rig.yaw = name === 'harbor' ? 0.25 : 0.12;
+    world.rig.pitch = 0.2;
+    world.cash = 3850;
+    run(world, 30, KEYS('KeyW'), hud);
+    world.rig.snap(p, world.collision);
+    run(world, 2, KEYS(), hud);
+    return;
+  }
+
+  // a close-up of the townsfolk: the camera sits in front of the player, who sprints toward it
+  if (name === 'people') {
+    const p = world.player;
+    p.x = 9.8;
+    p.z = 1.0;
+    p.heading = 0;
+    world.rig.yaw = Math.PI + 0.3;
+    world.rig.pitch = 0.12;
+    const A = { i: 4, j: 3, sx: 1, sz: 1 }, B = { i: 4, j: 4, sx: 1, sz: -1 };
+    for (let k = 0; k < 6; k++) world.peds.placeBetween(world.peds.list[k], k % 2 ? A : B, k % 2 ? B : A, 0.3 + k * 0.08);
+    run(world, 30, KEYS('KeyW', 'ShiftLeft'), hud);
+    world.rig.snap(p, world.collision);
+    run(world, 2, KEYS('KeyW', 'ShiftLeft'), hud);
     return;
   }
 
