@@ -39,6 +39,7 @@ export class Hud {
       cashPickup: $('cash-pickup'), cashLabel: $('cash-label'), cashPay: $('cash-pay'), cashBags: $('cash-bags'), cashDist: $('cash-dist'),
       medic: $('paramedic'), medicLabel: $('medic-label'), medicPay: $('medic-pay'), medicTimer: $('medic-timer'), medicDist: $('medic-dist'),
       fuel: $('fuel-run'), fuelLabel: $('fuel-label'), fuelPay: $('fuel-pay'), fuelTimer: $('fuel-timer'), fuelDist: $('fuel-dist'),
+      buggy: $('buggy-roundup'), buggyLabel: $('buggy-label'), buggyPay: $('buggy-pay'), buggyCount: $('buggy-count'),buggyTimer: $('buggy-timer'), buggyDist: $('buggy-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -290,6 +291,22 @@ export class Hud {
     this._set('mdt', e.medicTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.medicTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('mdd', e.medicDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Buggy Roundup: label, returned pay so far (only when > 0), buggies returned n/4, return countdown m:ss (cold under 10 s) and the metres to the buggy / shop.
+  _buggy(world) {
+    const e = this.el;
+    const s = world.buggyRoundup ? world.buggyRoundup.hudState() : null;
+    const show = !!s && s.visible;
+    e.buggy.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('bgl', e.buggyLabel, s.label);
+    this._set('bgp', e.buggyPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    const secs = Math.ceil(s.timeLeft);
+    this._set('bgc', e.buggyCount, `${s.buggiesDone}/${s.buggiesTotal}`);
+    this._set('bgt', e.buggyTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.buggyTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('bgd', e.buggyDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Harbor Fuel Run: label, per-boat earnings so far (only when > 0), leg countdown m:ss (cold under 10 s) and the metres to the depot / berth.
@@ -645,6 +662,7 @@ export class Hud {
     this._cashPickup(world);
     this._paramedic(world);
     this._fuelRun(world);
+    this._buggy(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

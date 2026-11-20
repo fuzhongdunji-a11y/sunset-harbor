@@ -306,6 +306,29 @@ export class Minimap {
       g.stroke();
       g.restore();
     }
+    // Buggy Roundup: a pulsing lime diamond on the current buggy, then the shop
+    if (extras.buggy) {
+      const t = extras.buggy;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = extras.buggyState === 'TO_SHOP' ? '#ffe14d' : '#c0ff33';
+      g.fill();
+      g.strokeStyle = '#f2ffd0';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;
