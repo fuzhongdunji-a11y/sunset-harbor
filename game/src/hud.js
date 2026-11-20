@@ -30,6 +30,7 @@ export class Hud {
       speedUnit: $('speed-unit'), hullRow: $('hull-row'), hullPct: $('hull-pct'), hpTrack: $('hp-track'), trim: $('trim'),
       cbd: $('cbd'), cbdPips: [...document.querySelectorAll('#cbd-pips i')], cbdCount: $('cbd-count'), cbdTime: $('cbd-time'),
       cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
+      taxi: $('taxi'), taxiLabel: $('taxi-label'), taxiFare: $('taxi-fare'), taxiDist: $('taxi-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -182,6 +183,18 @@ export class Hud {
     this.lastBonus = v.bonusT;
     this._set('amwarn', e.amsWarn, v.warn);
     e.amsWarn.style.color = v.locked ? '#ff4a3c' : v.phase === 'deliver' ? '#ffd23f' : '#ff8a70';
+  }
+
+  // Costa Cab: one line with the job label, the fare so far (+tip when it is on course) and the metres to the next ring.
+  _taxi(world) {
+    const e = this.el;
+    const s = world.taxi ? world.taxi.hudState() : null;
+    const show = !!s && s.visible;
+    e.taxi.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('txl', e.taxiLabel, s.label);
+    this._set('txf', e.taxiFare, s.fare > 0 ? `$${s.fare.toLocaleString('en-US')}${s.tip ? ` +$${s.tip}` : ''}` : '');
+    this._set('txd', e.taxiDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Harbor Contraband Run: crate pips, MM:SS clock (red under 20 s), the clean-hull bonus preview, an abandon-boat countdown, and the floating Pier 1 label.
@@ -488,6 +501,7 @@ export class Hud {
       this.cache.sfx = undefined;
     }
     this._contraband(world);
+    this._taxi(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

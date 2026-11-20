@@ -13,6 +13,8 @@ import { R_NEAR, R_FAR } from './signalIntercept.js';
 import { AirPursuit, setupAirPursuitShot } from './airpursuit.js';
 import { stageCustomsShot } from './customsShot.js';
 import { SunsetGPDirector } from './sunsetGP.js';
+import { TaxiService } from './taxi.js';
+import { stageTaxiShot } from './taxiShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -32,7 +34,37 @@ const air = new AirPursuit(world, scene); // Costa Air-1: hooks itself into worl
 world.air = air;
 const gp = new SunsetGPDirector(world, scene); // Sunset GP: hooks itself into world.afterStep like Air-1, and publishes gp.view / gp.mapView for the HUD and minimap
 world.gp = gp;
-window.__game = { world, renderer, air, gp };
+const taxi = new TaxiService(world, scene); // Costa Cab fares: driven from the frame loop below; world.taxi lets the HUD read hudState()
+world.taxi = taxi;
+let taxiHealth = null; // player car health last frame (damage delta source)
+window.__game = { world, renderer, air, gp, taxi };
+
+// Build the per-frame context taxi.update expects from the player's car and pay out / announce taxi events.
+function taxiCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null; // boats and walking do not count as being in the cab
+  let delta = 0;
+  if (car) {
+    if (taxiHealth !== null && taxiHealth.car === car) delta = Math.max(0, taxiHealth.hp - car.health);
+    taxiHealth = { car, hp: car.health };
+  } else {
+    taxiHealth = null;
+  }
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'taxi') return;
+      if (ev.phase === 'pickup') world.notify('Fare aboard. Take them to the yellow ring.', 'info');
+      else if (ev.phase === 'paid') {
+        world.cash += ev.fare + ev.tip;
+        world.notify(`FARE PAID  +$${(ev.fare + ev.tip).toLocaleString('en-US')}${ev.tip ? `  (tip $${ev.tip})` : ''}`, 'mission');
+      } else if (ev.phase === 'failed') world.notify('Fare abandoned. No pay.', 'warn');
+    },
+  };
+}
 const hud = new Hud();
 window.__game.hud = hud;
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
@@ -94,7 +126,8 @@ function drawMinimap() {
     ambient: world.ambient.active?.mapIcon ?? null,
     customs: world.customs.mapView,
     gp: gp.mapView,
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    taxi: taxi.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -105,6 +138,7 @@ if (shot) {
   if (shot === 'airpursuit') setupAirPursuitShot(world, air, hud, ui);
   else if (shot === 'customs') stageCustomsShot(world, hud, ui); // Solaris Customs hero frame (customsShot.js)
   else if (shot === 'gp') gp.setupDeterministicShot(hud, ui); // Sunset GP round 1 under way (sunsetGP.js owns the staging)
+  else if (shot === 'taxi') stageTaxiShot(world, taxi, taxiCtx, hud, ui); // Costa Cab hero frame (taxiShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -131,6 +165,7 @@ if (shot) {
     } else if (ui.state === 'playing') {
       const mouse = input.takeMouse();
       world.update(dt, input, mouse);
+      taxi.update(dt, taxiCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

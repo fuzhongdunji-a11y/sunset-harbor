@@ -194,6 +194,10 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #trim.ready i { background: #39d5ff; box-shadow: 0 0 10px #39d5ff; }
 #trim.ready b { background: #39d5ff; color: #06202a; }
 #cbd { position: absolute; left: 50%; top: 14px; width: 330px; transform: translateX(-50%); text-align: center; padding: 8px 10px 6px; background: rgba(8, 20, 30, 0.72); border-top: 4px solid #39d5ff; border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#taxi { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(20, 16, 4, 0.74); border-left: 4px solid #ffd400; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#taxi-label { color: #ffd400; font-size: 14px; }
+#taxi-fare { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#taxi-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #cbd-head { font-size: 14px; font-weight: 900; letter-spacing: 4px; color: #8ff3ff; }
 #cbd-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 2px; }
 #cbd-pips i { display: inline-block; width: 22px; height: 14px; margin: 0 3px; border: 2px solid #39d5ff; border-radius: 3px; background: rgba(0, 0, 0, 0.4); transform: skewX(-14deg); }
