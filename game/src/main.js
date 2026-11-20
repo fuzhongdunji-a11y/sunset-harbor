@@ -23,6 +23,8 @@ import { ValetRushService, VALET } from './valetRush.js';
 import { stageValetShot } from './valetShot.js';
 import { TowService } from './towService.js';
 import { stageTowShot } from './towShot.js';
+import { LoopTourService } from './loopTour.js';
+import { stageLoopTourShot } from './loopTourShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -57,7 +59,41 @@ let valetHealth = null; // its own damage-delta source: separate from the other 
 const tow = new TowService(world, scene); // Costa Tow Service: same frame-loop pattern; world.tow feeds the HUD
 world.tow = tow;
 let towHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow };
+const loopTour = new LoopTourService(world, scene); // Harbor Loop Tour: same frame-loop pattern; world.loopTour feeds the HUD
+world.loopTour = loopTour;
+let loopTourHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour };
+
+// Per-frame context for loopTour.update; pays out and announces tour events (pay + bonus credited once per stop / once at the end).
+function loopTourCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (loopTourHealth !== null && loopTourHealth.car === car) delta = Math.max(0, loopTourHealth.hp - car.health);
+    loopTourHealth = { car, hp: car.health };
+  } else {
+    loopTourHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'loopTour') return;
+      if (ev.phase === 'boarded') world.notify('Tourists aboard. Visit the 5 pink rings in order.', 'info');
+      else if (ev.phase === 'stop') {
+        world.cash += ev.pay + ev.bonus;
+        world.notify(`STOP ${ev.stopsDone}/5  +${money(ev.pay + ev.bonus)}${ev.bonus ? '  (smooth ride)' : ''}`, 'mission');
+      } else if (ev.phase === 'paid') {
+        world.cash += ev.pay + ev.bonus;
+        world.notify(`LOOP TOUR COMPLETE  +${money(ev.pay + ev.bonus)}${ev.bonus ? '  (on schedule)' : ''}`, 'mission');
+      } else if (ev.phase === 'failed') world.notify('Loop tour abandoned. The tourists walked off.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for tow.update; pays out and announces tow events.
 function towCtx() {
@@ -277,7 +313,8 @@ function drawMinimap() {
     courier: foodCourier.targetPos(),
     valet: valetRush.targetPos(),
     tow: tow.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'tow' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    loopTour: loopTour.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -293,6 +330,7 @@ if (shot) {
   else if (shot === 'courier') stageCourierShot(world, foodCourier, courierCtx, hud, ui); // Costa Food Delivery hero frame (foodCourierShot.js)
   else if (shot === 'valet') stageValetShot(world, valetRush, valetCtx, hud, ui); // Marina Hotel Valet hero frame (valetShot.js)
   else if (shot === 'tow') stageTowShot(world, tow, towCtx, hud, ui); // Costa Tow Service hero frame (towShot.js)
+  else if (shot === 'loop') stageLoopTourShot(world, loopTour, loopTourCtx, hud, ui); // Harbor Loop Tour hero frame (loopTourShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -324,6 +362,7 @@ if (shot) {
       foodCourier.update(dt, courierCtx());
       valetRush.update(dt, valetCtx());
       tow.update(dt, towCtx());
+      loopTour.update(dt, loopTourCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

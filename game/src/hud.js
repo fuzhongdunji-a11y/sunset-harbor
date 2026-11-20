@@ -35,6 +35,7 @@ export class Hud {
       photo: $('photo-tour'), photoLabel: $('photo-label'), photoPay: $('photo-pay'), photoDist: $('photo-dist'), photoFlash: $('photo-flash'),
       courier: $('courier'), courierLabel: $('courier-label'), courierPay: $('courier-pay'), courierChain: $('courier-chain'), courierTimer: $('courier-timer'), courierDist: $('courier-dist'),
       valet: $('valet'), valetLabel: $('valet-label'), valetPay: $('valet-pay'), valetParks: $('valet-parks'), valetTimer: $('valet-timer'), valetDist: $('valet-dist'),
+      loop: $('loop-tour'), loopLabel: $('loop-label'), loopPay: $('loop-pay'), loopStops: $('loop-stops'), loopTimer: $('loop-timer'), loopDist: $('loop-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -255,6 +256,22 @@ export class Hud {
     this._set('vrt', e.valetTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.valetTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 15);
     this._set('vrd', e.valetDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Harbor Loop Tour: label, pay so far, stops done / 5, the leg par countdown (m:ss, TOURING only) and the metres to the stand / next ring.
+  _loopTour(world) {
+    const e = this.el;
+    const s = world.loopTour ? world.loopTour.hudState() : null;
+    const show = !!s && s.visible;
+    e.loop.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('lpl', e.loopLabel, s.label);
+    this._set('lpp', e.loopPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('lps', e.loopStops, `${s.stopsDone}/${s.stopsTotal}`);
+    const secs = Math.ceil(s.timeLeft);
+    this._set('lpt', e.loopTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.loopTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('lpd', e.loopDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Camera flash: a brief white overlay. hold=true freezes it half-bright (used by ?shot=photo so the frame is deterministic).
@@ -578,6 +595,7 @@ export class Hud {
     this._photoTour(world);
     this._courier(world);
     this._valet(world);
+    this._loopTour(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));
