@@ -17,6 +17,8 @@ import { TaxiService } from './taxi.js';
 import { stageTaxiShot } from './taxiShot.js';
 import { PhotoTourService } from './photoTour.js';
 import { stagePhotoShot } from './photoShot.js';
+import { FoodCourierService, FOOD_COURIER } from './foodCourier.js';
+import { stageCourierShot } from './foodCourierShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -42,7 +44,10 @@ let taxiHealth = null; // player car health last frame (damage delta source)
 const photoTour = new PhotoTourService(world, scene); // Sunset Photo Tour: same frame-loop pattern as the cab; world.photoTour feeds the HUD
 world.photoTour = photoTour;
 let photoHealth = null; // its own damage-delta source: never shared with taxiHealth
-window.__game = { world, renderer, air, gp, taxi, photoTour };
+const foodCourier = new FoodCourierService(world, scene); // Costa Food Delivery chain: same frame-loop pattern; world.foodCourier feeds the HUD
+world.foodCourier = foodCourier;
+let courierHealth = null; // its own damage-delta source: separate from taxiHealth and photoHealth
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier };
 
 // Build the per-frame context taxi.update expects from the player's car and pay out / announce taxi events.
 function taxiCtx() {
@@ -107,6 +112,37 @@ function photoCtx() {
     },
   };
 }
+// Per-frame context for foodCourier.update. Money: every 'dropPaid' pays ev.reward; the single 'chainPaid' event pays BASE_PAY once after the last drop; 'failed' pays nothing.
+function courierCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (courierHealth !== null && courierHealth.car === car) delta = Math.max(0, courierHealth.hp - car.health);
+    courierHealth = { car, hp: car.health };
+  } else {
+    courierHealth = null;
+  }
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    wrecked: !!car && car.health <= 0,
+    onEvent(ev) {
+      if (ev.type !== 'courier') return;
+      if (ev.phase === 'pickup') world.notify('Order picked up. Deliver it to the green ring while it is hot.', 'info');
+      else if (ev.phase === 'dropPaid') {
+        world.cash += ev.reward;
+        const tag = ev.hot ? `HOT  x${ev.chain}` : ev.cold ? 'COLD' : 'WARM';
+        world.notify(`DELIVERED ${ev.dropsDone}/${FOOD_COURIER.MAX_CHAIN}  +$${ev.reward.toLocaleString('en-US')}  (${tag})`, 'mission');
+      } else if (ev.phase === 'chainPaid') {
+        world.cash += ev.pay;
+        world.notify(`CHAIN COMPLETE  +$${ev.pay.toLocaleString('en-US')}`, 'mission');
+      } else if (ev.phase === 'failed') world.notify(ev.reason === 'wrecked' ? 'Car wrecked. Delivery run over.' : 'Order abandoned. Run over.', 'warn');
+    },
+  };
+}
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
 const audio = new GameAudio();
 window.__game.audio = audio;
@@ -168,7 +204,8 @@ function drawMinimap() {
     gp: gp.mapView,
     taxi: taxi.targetPos(),
     photo: photoTour.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' || shot === 'photo' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    courier: foodCourier.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' || shot === 'photo' || shot === 'courier' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -181,6 +218,7 @@ if (shot) {
   else if (shot === 'gp') gp.setupDeterministicShot(hud, ui); // Sunset GP round 1 under way (sunsetGP.js owns the staging)
   else if (shot === 'taxi') stageTaxiShot(world, taxi, taxiCtx, hud, ui); // Costa Cab hero frame (taxiShot.js)
   else if (shot === 'photo') stagePhotoShot(world, photoTour, photoCtx, hud, ui); // Sunset Photo Tour hero frame (photoShot.js)
+  else if (shot === 'courier') stageCourierShot(world, foodCourier, courierCtx, hud, ui); // Costa Food Delivery hero frame (foodCourierShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -209,6 +247,7 @@ if (shot) {
       world.update(dt, input, mouse);
       taxi.update(dt, taxiCtx());
       photoTour.update(dt, photoCtx());
+      foodCourier.update(dt, courierCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

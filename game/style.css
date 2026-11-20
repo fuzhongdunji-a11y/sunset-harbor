@@ -199,6 +199,12 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #photo-label { color: #ff7a2e; font-size: 14px; }
 #photo-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
 #photo-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#courier { position: absolute; left: 50%; bottom: 242px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(4, 22, 18, 0.74); border-left: 4px solid #14d6a0; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#courier-label { color: #14d6a0; font-size: 14px; }
+#courier-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#courier-chain, #courier-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#courier-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #ffb36b; }
+#courier-timer.cold { color: #ff5a4a; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }
 #taxi-label { color: #ffd400; font-size: 14px; }

@@ -32,6 +32,7 @@ export class Hud {
       cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
       taxi: $('taxi'), taxiLabel: $('taxi-label'), taxiFare: $('taxi-fare'), taxiDist: $('taxi-dist'),
       photo: $('photo-tour'), photoLabel: $('photo-label'), photoPay: $('photo-pay'), photoDist: $('photo-dist'), photoFlash: $('photo-flash'),
+      courier: $('courier'), courierLabel: $('courier-label'), courierPay: $('courier-pay'), courierChain: $('courier-chain'), courierTimer: $('courier-timer'), courierDist: $('courier-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -208,6 +209,22 @@ export class Hud {
     this._set('ptl', e.photoLabel, s.label);
     this._set('ptp', e.photoPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
     this._set('ptd', e.photoDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Costa Food Delivery: label, drop pay so far, drops done / total with the hot-chain count, the freshness timer (during delivery) and the metres to the next ring.
+  _courier(world) {
+    const e = this.el;
+    const s = world.foodCourier ? world.foodCourier.hudState() : null;
+    const show = !!s && s.visible;
+    e.courier.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('cql', e.courierLabel, s.label);
+    this._set('cqp', e.courierPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('cqc', e.courierChain, `${s.dropsDone}/${s.dropsTotal}${s.chain > 0 ? `  CHAIN x${s.chain}` : ''}`);
+    const secs = Math.ceil(s.timeLeft);
+    this._set('cqt', e.courierTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}${s.timeLeft > s.timeTotal / 2 ? ' HOT' : s.timeLeft > 0 ? '' : ' COLD'}` : '');
+    e.courierTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft <= 0);
+    this._set('cqd', e.courierDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Camera flash: a brief white overlay. hold=true freezes it half-bright (used by ?shot=photo so the frame is deterministic).
@@ -528,6 +545,7 @@ export class Hud {
     this._contraband(world);
     this._taxi(world);
     this._photoTour(world);
+    this._courier(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

@@ -246,6 +246,27 @@ export class Minimap {
       g.stroke();
       g.restore();
     }
+    // Costa Food Delivery: a teal-green square with a dark outline on the current restaurant or customer (rim-clamped; square so it reads apart from the cab ring and the photo diamond)
+    if (extras.courier) {
+      const t = extras.courier;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      const sq = (far ? 5 : 6.5) + (far ? 0 : 1.4 * Math.sin(now * 5));
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.strokeRect(-sq, -sq, sq * 2, sq * 2);
+      g.fillStyle = '#14d6a0';
+      g.fillRect(-sq, -sq, sq * 2, sq * 2);
+      g.strokeStyle = '#d6fff2';
+      g.lineWidth = 2;
+      g.strokeRect(-sq, -sq, sq * 2, sq * 2);
+      g.restore();
+    }
     // Sunset GP: checkered start ring while idle; during a race the glowing route, a pulsing cyan ring on the active gate, a checkered finish and the three rival dots
     const gp = extras.gp;
     if (gp) {
