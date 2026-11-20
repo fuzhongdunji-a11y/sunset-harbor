@@ -40,6 +40,7 @@ export class Hud {
       medic: $('paramedic'), medicLabel: $('medic-label'), medicPay: $('medic-pay'), medicTimer: $('medic-timer'), medicDist: $('medic-dist'),
       fuel: $('fuel-run'), fuelLabel: $('fuel-label'), fuelPay: $('fuel-pay'), fuelTimer: $('fuel-timer'), fuelDist: $('fuel-dist'),
       buggy: $('buggy-roundup'), buggyLabel: $('buggy-label'), buggyPay: $('buggy-pay'), buggyCount: $('buggy-count'),buggyTimer: $('buggy-timer'), buggyDist: $('buggy-dist'),
+      stunt: $('stunt-double'), stuntLabel: $('stunt-label'), stuntPay: $('stunt-pay'), stuntCount: $('stunt-count'), stuntTimer: $('stunt-timer'), stuntDist: $('stunt-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -307,6 +308,22 @@ export class Hud {
     this._set('bgt', e.buggyTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.buggyTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('bgd', e.buggyDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Stunt Double: label, pay earned so far (only when > 0), stunts done n/3, round countdown m:ss (cold under 10 s) and the metres to the ramp / landing zone.
+  _stunt(world) {
+    const e = this.el;
+    const s = world.stuntDouble ? world.stuntDouble.hudState() : null;
+    const show = !!s && s.visible;
+    e.stunt.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('sdl', e.stuntLabel, s.label);
+    this._set('sdp', e.stuntPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    const secs = Math.ceil(s.timeLeft);
+    this._set('sdc', e.stuntCount, `${s.stuntsDone}/${s.stuntsTotal}`);
+    this._set('sdt', e.stuntTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.stuntTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('sdd', e.stuntDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Harbor Fuel Run: label, per-boat earnings so far (only when > 0), leg countdown m:ss (cold under 10 s) and the metres to the depot / berth.
@@ -663,6 +680,7 @@ export class Hud {
     this._paramedic(world);
     this._fuelRun(world);
     this._buggy(world);
+    this._stunt(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

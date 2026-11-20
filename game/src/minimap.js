@@ -329,6 +329,33 @@ export class Minimap {
       g.stroke();
       g.restore();
     }
+    // Stunt Double: a pulsing amber diamond with a dark core on the current ramp (white-rimmed on the landing zone)
+    if (extras.stunt) {
+      const t = extras.stunt;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ffb020';
+      g.fill();
+      g.strokeStyle = extras.stuntState === 'FLIGHT' ? '#ffffff' : '#ffe2a8';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.beginPath();
+      g.arc(0, 0, 2, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(12,16,24,0.9)';
+      g.fill();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;

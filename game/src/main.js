@@ -33,6 +33,8 @@ import { FuelRunService } from './fuelRun.js';
 import { stageFuelRunShot } from './fuelRunShot.js';
 import { BuggyRoundupService } from './buggyRoundup.js';
 import { stageBuggyShot } from './buggyShot.js';
+import { StuntDoubleService } from './stuntDouble.js';
+import { stageStuntShot } from './stuntShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -82,7 +84,40 @@ let fuelRunHealth = null; // its own damage-delta source: separate from the othe
 const buggyRoundup = new BuggyRoundupService(world, scene); // Buggy Roundup: same frame-loop pattern; world.buggyRoundup feeds the HUD
 world.buggyRoundup = buggyRoundup;
 let buggyHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup };
+const stuntDouble = new StuntDoubleService(world, scene); // Stunt Double: same frame-loop pattern; world.stuntDouble feeds the HUD
+world.stuntDouble = stuntDouble;
+let stuntHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble };
+
+// Per-frame context for stuntDouble.update; credits pay + bonus exactly once per event and announces each phase.
+function stuntCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (stuntHealth !== null && stuntHealth.car === car) delta = Math.max(0, stuntHealth.hp - car.health);
+    stuntHealth = { car, hp: car.health };
+  } else {
+    stuntHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'stunt') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'launched') world.notify('STUNT LAUNCHED! Land it clean!', 'mission');
+      else if (ev.phase === 'landed') world.notify(`STUNT LANDED  +${money(total)}${ev.bonus ? ' (clean!)' : ''}`, 'mission');
+      else if (ev.phase === 'missed') world.notify('Stunt missed the landing zone.', 'warn');
+      else if (ev.phase === 'paid') world.notify(`STUNT DOUBLE COMPLETE  +${money(total)}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Stunt shoot abandoned.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for buggyRoundup.update; credits pay + bonus exactly once per event and announces each phase.
 function buggyCtx() {
@@ -459,7 +494,9 @@ function drawMinimap() {
     fuelRun: fuelRun.targetPos(),
     buggy: buggyRoundup.targetPos(),
     buggyState: buggyRoundup.state,
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'fuel' || shot === 'buggy' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    stunt: stuntDouble.targetPos(),
+    stuntState: stuntDouble.state,
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -480,6 +517,7 @@ if (shot) {
   else if (shot === 'medic') stageParamedicShot(world, paramedic, paramedicCtx, hud, ui); // Paramedic Rush hero frame (paramedicShot.js)
   else if (shot === 'fuel') stageFuelRunShot(world, fuelRun, fuelRunCtx, hud, ui); // Harbor Fuel Run hero frame (fuelRunShot.js)
   else if (shot === 'buggy') stageBuggyShot(world, buggyRoundup, buggyCtx, hud, ui); // Buggy Roundup hero frame (buggyShot.js)
+  else if (shot === 'stunt') stageStuntShot(world, stuntDouble, stuntCtx, hud, ui); // Stunt Double hero frame (stuntShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -516,6 +554,7 @@ if (shot) {
       paramedic.update(dt, paramedicCtx());
       fuelRun.update(dt, fuelRunCtx());
       buggyRoundup.update(dt, buggyCtx());
+      stuntDouble.update(dt, stuntCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();
