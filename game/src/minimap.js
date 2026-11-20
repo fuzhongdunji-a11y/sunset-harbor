@@ -267,6 +267,32 @@ export class Minimap {
       g.strokeRect(-sq, -sq, sq * 2, sq * 2);
       g.restore();
     }
+    // Marina Hotel Valet: a violet upward triangle with a dark outline on the current hotel or bay (rim-clamped; a triangle reads apart from the cab ring, photo diamond and courier square)
+    if (extras.valet) {
+      const t = extras.valet;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      const tr = (far ? 6 : 7.5) + (far ? 0 : 1.4 * Math.sin(now * 5));
+      g.beginPath();
+      g.moveTo(0, -tr);
+      g.lineTo(tr * 0.95, tr * 0.75);
+      g.lineTo(-tr * 0.95, tr * 0.75);
+      g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#c44dff';
+      g.fill();
+      g.strokeStyle = '#f0d4ff';
+      g.lineWidth = 2;
+      g.stroke();
+      g.restore();
+    }
     // Sunset GP: checkered start ring while idle; during a race the glowing route, a pulsing cyan ring on the active gate, a checkered finish and the three rival dots
     const gp = extras.gp;
     if (gp) {

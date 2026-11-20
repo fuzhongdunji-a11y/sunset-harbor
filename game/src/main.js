@@ -19,6 +19,8 @@ import { PhotoTourService } from './photoTour.js';
 import { stagePhotoShot } from './photoShot.js';
 import { FoodCourierService, FOOD_COURIER } from './foodCourier.js';
 import { stageCourierShot } from './foodCourierShot.js';
+import { ValetRushService, VALET } from './valetRush.js';
+import { stageValetShot } from './valetShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -47,7 +49,10 @@ let photoHealth = null; // its own damage-delta source: never shared with taxiHe
 const foodCourier = new FoodCourierService(world, scene); // Costa Food Delivery chain: same frame-loop pattern; world.foodCourier feeds the HUD
 world.foodCourier = foodCourier;
 let courierHealth = null; // its own damage-delta source: separate from taxiHealth and photoHealth
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier };
+const valetRush = new ValetRushService(world, scene); // Marina Hotel Valet: same frame-loop pattern; world.valetRush feeds the HUD
+world.valetRush = valetRush;
+let valetHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush };
 
 // Build the per-frame context taxi.update expects from the player's car and pay out / announce taxi events.
 function taxiCtx() {
@@ -143,6 +148,38 @@ function courierCtx() {
     },
   };
 }
+// Per-frame context for valetRush.update. Money: every 'parked' event pays ev.reward (PER_PARK); the single 'paid' event pays ev.pay (BASE_PAY + tips) once after the third park; 'failed' pays nothing.
+function valetCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (valetHealth !== null && valetHealth.car === car) delta = Math.max(0, valetHealth.hp - car.health);
+    valetHealth = { car, hp: car.health };
+  } else {
+    valetHealth = null;
+  }
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'valet') return;
+      if (ev.phase === 'handover') world.notify('Keys handed over. Park the car in the violet bay.', 'info');
+      else if (ev.phase === 'parked') {
+        world.cash += ev.reward;
+        world.notify(`PARKED ${ev.parksDone}/${VALET.MAX_PARKS}  +$${ev.reward.toLocaleString('en-US')}`, 'mission');
+      } else if (ev.phase === 'paid') {
+        world.cash += ev.pay;
+        const tips = [ev.tipFast ? 'FAST' : '', ev.tipClean ? 'CLEAN' : ''].filter(Boolean).join(' + ');
+        world.notify(`VALET COMPLETE  +$${ev.pay.toLocaleString('en-US')}${tips ? `  (${tips})` : ''}`, 'mission');
+      } else if (ev.phase === 'failed') {
+        world.notify(ev.reason === 'wrecked' ? 'Car wrecked. Valet run over.' : ev.reason === 'timeout' ? 'Out of time. Valet run over.' : 'Car abandoned. Valet run over.', 'warn');
+      }
+    },
+  };
+}
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
 const audio = new GameAudio();
 window.__game.audio = audio;
@@ -205,7 +242,8 @@ function drawMinimap() {
     taxi: taxi.targetPos(),
     photo: photoTour.targetPos(),
     courier: foodCourier.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' || shot === 'photo' || shot === 'courier' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    valet: valetRush.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -219,6 +257,7 @@ if (shot) {
   else if (shot === 'taxi') stageTaxiShot(world, taxi, taxiCtx, hud, ui); // Costa Cab hero frame (taxiShot.js)
   else if (shot === 'photo') stagePhotoShot(world, photoTour, photoCtx, hud, ui); // Sunset Photo Tour hero frame (photoShot.js)
   else if (shot === 'courier') stageCourierShot(world, foodCourier, courierCtx, hud, ui); // Costa Food Delivery hero frame (foodCourierShot.js)
+  else if (shot === 'valet') stageValetShot(world, valetRush, valetCtx, hud, ui); // Marina Hotel Valet hero frame (valetShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -248,6 +287,7 @@ if (shot) {
       taxi.update(dt, taxiCtx());
       photoTour.update(dt, photoCtx());
       foodCourier.update(dt, courierCtx());
+      valetRush.update(dt, valetCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

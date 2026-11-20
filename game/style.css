@@ -205,6 +205,12 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #courier-chain, #courier-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #courier-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #ffb36b; }
 #courier-timer.cold { color: #ff5a4a; }
+#valet { position: absolute; left: 50%; bottom: 288px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(20, 8, 28, 0.74); border-left: 4px solid #c44dff; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#valet-label { color: #c44dff; font-size: 14px; }
+#valet-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#valet-parks, #valet-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#valet-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #e3b3ff; }
+#valet-timer.cold { color: #ff5a4a; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }
 #taxi-label { color: #ffd400; font-size: 14px; }
