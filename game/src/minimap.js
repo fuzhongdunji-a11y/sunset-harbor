@@ -237,6 +237,29 @@ export class Minimap {
       g.stroke();
       g.restore();
     }
+    // Armored Cash Pickup: a pulsing green diamond on the nearest shop, then on the vault (rim-clamped like the other job markers)
+    if (extras.cashPickup) {
+      const t = extras.cashPickup;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#2ee66b';
+      g.fill();
+      g.strokeStyle = '#d6ffe4';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;

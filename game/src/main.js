@@ -25,6 +25,8 @@ import { TowService } from './towService.js';
 import { stageTowShot } from './towShot.js';
 import { LoopTourService } from './loopTour.js';
 import { stageLoopTourShot } from './loopTourShot.js';
+import { CashPickupService } from './cashPickup.js';
+import { stageCashPickupShot } from './cashPickupShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -62,7 +64,41 @@ let towHealth = null; // its own damage-delta source: separate from the other jo
 const loopTour = new LoopTourService(world, scene); // Harbor Loop Tour: same frame-loop pattern; world.loopTour feeds the HUD
 world.loopTour = loopTour;
 let loopTourHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour };
+const cashPickup = new CashPickupService(world, scene); // Armored Cash Pickup: same frame-loop pattern; world.cashPickup feeds the HUD
+world.cashPickup = cashPickup;
+let cashPickupHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup };
+
+// Per-frame context for cashPickup.update; credits pay + bonus exactly once per event and announces each phase.
+function cashPickupCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (cashPickupHealth !== null && cashPickupHealth.car === car) delta = Math.max(0, cashPickupHealth.hp - car.health);
+    cashPickupHealth = { car, hp: car.health };
+  } else {
+    cashPickupHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'cashPickup') return;
+      const total = ev.pay + ev.bonus;
+      if (ev.phase === 'bag') {
+        world.cash += total;
+        world.notify(`CASH BAG ${ev.bagsDone}/4  +${money(total)}`, 'mission');
+      } else if (ev.phase === 'paid') {
+        world.cash += total;
+        world.notify(`VAULT DELIVERY COMPLETE  +${money(total)}${ev.bonus ? '  (clean getaway)' : ''}`, 'mission');
+      } else if (ev.phase === 'failed') world.notify('Cash pickup abandoned. The bags are gone.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for loopTour.update; pays out and announces tour events (pay + bonus credited once per stop / once at the end).
 function loopTourCtx() {
@@ -314,7 +350,8 @@ function drawMinimap() {
     valet: valetRush.targetPos(),
     tow: tow.targetPos(),
     loopTour: loopTour.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    cashPickup: cashPickup.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -331,6 +368,7 @@ if (shot) {
   else if (shot === 'valet') stageValetShot(world, valetRush, valetCtx, hud, ui); // Marina Hotel Valet hero frame (valetShot.js)
   else if (shot === 'tow') stageTowShot(world, tow, towCtx, hud, ui); // Costa Tow Service hero frame (towShot.js)
   else if (shot === 'loop') stageLoopTourShot(world, loopTour, loopTourCtx, hud, ui); // Harbor Loop Tour hero frame (loopTourShot.js)
+  else if (shot === 'cash') stageCashPickupShot(world, cashPickup, cashPickupCtx, hud, ui); // Armored Cash Pickup hero frame (cashPickupShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -363,6 +401,7 @@ if (shot) {
       valetRush.update(dt, valetCtx());
       tow.update(dt, towCtx());
       loopTour.update(dt, loopTourCtx());
+      cashPickup.update(dt, cashPickupCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

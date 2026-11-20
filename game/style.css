@@ -216,6 +216,10 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #loop-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
 #loop-stops, #loop-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #loop-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #ffb3d4; }
+#cash-pickup { position: absolute; left: 50%; bottom: 358px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(6, 28, 14, 0.74); border-left: 4px solid #2ee66b; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#cash-label { color: #2ee66b; font-size: 14px; }
+#cash-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#cash-bags, #cash-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #loop-timer.cold { color: #ff5a4a; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }

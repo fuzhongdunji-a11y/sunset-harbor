@@ -36,6 +36,7 @@ export class Hud {
       courier: $('courier'), courierLabel: $('courier-label'), courierPay: $('courier-pay'), courierChain: $('courier-chain'), courierTimer: $('courier-timer'), courierDist: $('courier-dist'),
       valet: $('valet'), valetLabel: $('valet-label'), valetPay: $('valet-pay'), valetParks: $('valet-parks'), valetTimer: $('valet-timer'), valetDist: $('valet-dist'),
       loop: $('loop-tour'), loopLabel: $('loop-label'), loopPay: $('loop-pay'), loopStops: $('loop-stops'), loopTimer: $('loop-timer'), loopDist: $('loop-dist'),
+      cashPickup: $('cash-pickup'), cashLabel: $('cash-label'), cashPay: $('cash-pay'), cashBags: $('cash-bags'), cashDist: $('cash-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -272,6 +273,19 @@ export class Hud {
     this._set('lpt', e.loopTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.loopTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('lpd', e.loopDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Armored Cash Pickup: label, bag earnings so far, bags done / 4 and the metres to the next shop ring / the vault.
+  _cashPickup(world) {
+    const e = this.el;
+    const s = world.cashPickup ? world.cashPickup.hudState() : null;
+    const show = !!s && s.visible;
+    e.cashPickup.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('cpl', e.cashLabel, s.label);
+    this._set('cpp', e.cashPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('cpb', e.cashBags, `${s.bagsDone}/${s.bagsTotal}`);
+    this._set('cpd', e.cashDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Camera flash: a brief white overlay. hold=true freezes it half-bright (used by ?shot=photo so the frame is deterministic).
@@ -596,6 +610,7 @@ export class Hud {
     this._courier(world);
     this._valet(world);
     this._loopTour(world);
+    this._cashPickup(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));
