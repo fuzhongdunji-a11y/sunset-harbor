@@ -31,6 +31,7 @@ export class Hud {
       cbd: $('cbd'), cbdPips: [...document.querySelectorAll('#cbd-pips i')], cbdCount: $('cbd-count'), cbdTime: $('cbd-time'),
       cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
       taxi: $('taxi'), taxiLabel: $('taxi-label'), taxiFare: $('taxi-fare'), taxiDist: $('taxi-dist'),
+      photo: $('photo-tour'), photoLabel: $('photo-label'), photoPay: $('photo-pay'), photoDist: $('photo-dist'), photoFlash: $('photo-flash'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -195,6 +196,30 @@ export class Hud {
     this._set('txl', e.taxiLabel, s.label);
     this._set('txf', e.taxiFare, s.fare > 0 ? `$${s.fare.toLocaleString('en-US')}${s.tip ? ` +$${s.tip}` : ''}` : '');
     this._set('txd', e.taxiDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Sunset Photo Tour: job label, pay so far (base + photos taken) and the metres to the next ring.
+  _photoTour(world) {
+    const e = this.el;
+    const s = world.photoTour ? world.photoTour.hudState() : null;
+    const show = !!s && s.visible;
+    e.photo.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('ptl', e.photoLabel, s.label);
+    this._set('ptp', e.photoPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('ptd', e.photoDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Camera flash: a brief white overlay. hold=true freezes it half-bright (used by ?shot=photo so the frame is deterministic).
+  flash(hold = false) {
+    const f = this.el.photoFlash;
+    f.style.transition = 'none';
+    f.classList.add('on');
+    if (hold) { f.style.opacity = '0.4'; return; }
+    void f.offsetWidth; // restart the transition
+    f.style.transition = '';
+    f.classList.remove('on');
+    f.style.opacity = '';
   }
 
   // Harbor Contraband Run: crate pips, MM:SS clock (red under 20 s), the clean-hull bonus preview, an abandon-boat countdown, and the floating Pier 1 label.
@@ -502,6 +527,7 @@ export class Hud {
     }
     this._contraband(world);
     this._taxi(world);
+    this._photoTour(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

@@ -15,6 +15,8 @@ import { stageCustomsShot } from './customsShot.js';
 import { SunsetGPDirector } from './sunsetGP.js';
 import { TaxiService } from './taxi.js';
 import { stageTaxiShot } from './taxiShot.js';
+import { PhotoTourService } from './photoTour.js';
+import { stagePhotoShot } from './photoShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -37,7 +39,10 @@ world.gp = gp;
 const taxi = new TaxiService(world, scene); // Costa Cab fares: driven from the frame loop below; world.taxi lets the HUD read hudState()
 world.taxi = taxi;
 let taxiHealth = null; // player car health last frame (damage delta source)
-window.__game = { world, renderer, air, gp, taxi };
+const photoTour = new PhotoTourService(world, scene); // Sunset Photo Tour: same frame-loop pattern as the cab; world.photoTour feeds the HUD
+world.photoTour = photoTour;
+let photoHealth = null; // its own damage-delta source: never shared with taxiHealth
+window.__game = { world, renderer, air, gp, taxi, photoTour };
 
 // Build the per-frame context taxi.update expects from the player's car and pay out / announce taxi events.
 function taxiCtx() {
@@ -67,6 +72,41 @@ function taxiCtx() {
 }
 const hud = new Hud();
 window.__game.hud = hud;
+
+// Per-frame context for photoTour.update. Money: each photo pays PER_SPOT ('photo' event), the final 'paid' event carries only BASE_PAY + tips.
+function photoCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (photoHealth !== null && photoHealth.car === car) delta = Math.max(0, photoHealth.hp - car.health);
+    photoHealth = { car, hp: car.health };
+  } else {
+    photoHealth = null;
+  }
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    wrecked: !!car && car.health <= 0,
+    onEvent(ev) {
+      if (ev.type === 'photo') {
+        if (ev.flash) hud.flash(!!shot);
+        if (ev.pay) {
+          world.cash += ev.pay;
+          world.notify(`PHOTO TAKEN  +$${ev.pay.toLocaleString('en-US')}`, 'mission');
+        }
+      } else if (ev.type === 'photoTour') {
+        if (ev.phase === 'pickup') world.notify('Tourist aboard. Drive to the orange rings for photos.', 'info');
+        else if (ev.phase === 'paid') {
+          world.cash += ev.pay;
+          world.notify(`TOUR COMPLETE  +$${ev.pay.toLocaleString('en-US')}${ev.tip ? `  (tip $${ev.tip})` : ''}`, 'mission');
+        } else if (ev.phase === 'failed') world.notify('Photo tour abandoned. No tips.', 'warn');
+      }
+    },
+  };
+}
 const minimap = new Minimap(document.getElementById('minimap'), world.layout);
 const audio = new GameAudio();
 window.__game.audio = audio;
@@ -127,7 +167,8 @@ function drawMinimap() {
     customs: world.customs.mapView,
     gp: gp.mapView,
     taxi: taxi.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    photo: photoTour.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' || shot === 'photo' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -139,6 +180,7 @@ if (shot) {
   else if (shot === 'customs') stageCustomsShot(world, hud, ui); // Solaris Customs hero frame (customsShot.js)
   else if (shot === 'gp') gp.setupDeterministicShot(hud, ui); // Sunset GP round 1 under way (sunsetGP.js owns the staging)
   else if (shot === 'taxi') stageTaxiShot(world, taxi, taxiCtx, hud, ui); // Costa Cab hero frame (taxiShot.js)
+  else if (shot === 'photo') stagePhotoShot(world, photoTour, photoCtx, hud, ui); // Sunset Photo Tour hero frame (photoShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -166,6 +208,7 @@ if (shot) {
       const mouse = input.takeMouse();
       world.update(dt, input, mouse);
       taxi.update(dt, taxiCtx());
+      photoTour.update(dt, photoCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

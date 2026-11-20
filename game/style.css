@@ -195,6 +195,12 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #trim.ready b { background: #39d5ff; color: #06202a; }
 #cbd { position: absolute; left: 50%; top: 14px; width: 330px; transform: translateX(-50%); text-align: center; padding: 8px 10px 6px; background: rgba(8, 20, 30, 0.72); border-top: 4px solid #39d5ff; border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
 #taxi { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(20, 16, 4, 0.74); border-left: 4px solid #ffd400; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#photo-tour { position: absolute; left: 50%; bottom: 196px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(28, 12, 8, 0.74); border-left: 4px solid #ff7a2e; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#photo-label { color: #ff7a2e; font-size: 14px; }
+#photo-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#photo-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
+#photo-flash.on { opacity: 0.85; transition: none; }
 #taxi-label { color: #ffd400; font-size: 14px; }
 #taxi-fare { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
 #taxi-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }

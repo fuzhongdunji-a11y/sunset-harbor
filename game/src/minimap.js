@@ -219,6 +219,33 @@ export class Minimap {
       g.fill();
       g.restore();
     }
+    // Sunset Photo Tour: a sunset-orange diamond with a dark outline on the current stand or photo spot (rim-clamped like the cab ring)
+    if (extras.photo) {
+      const t = extras.photo;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      const pr = (far ? 6 : 7.5) + (far ? 0 : 1.6 * Math.sin(now * 5));
+      g.beginPath();
+      g.moveTo(0, -pr);
+      g.lineTo(pr, 0);
+      g.lineTo(0, pr);
+      g.lineTo(-pr, 0);
+      g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ff7a2e';
+      g.fill();
+      g.strokeStyle = '#ffc48a';
+      g.lineWidth = 2;
+      g.stroke();
+      g.restore();
+    }
     // Sunset GP: checkered start ring while idle; during a race the glowing route, a pulsing cyan ring on the active gate, a checkered finish and the three rival dots
     const gp = extras.gp;
     if (gp) {
