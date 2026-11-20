@@ -21,6 +21,8 @@ import { FoodCourierService, FOOD_COURIER } from './foodCourier.js';
 import { stageCourierShot } from './foodCourierShot.js';
 import { ValetRushService, VALET } from './valetRush.js';
 import { stageValetShot } from './valetShot.js';
+import { TowService } from './towService.js';
+import { stageTowShot } from './towShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -52,7 +54,38 @@ let courierHealth = null; // its own damage-delta source: separate from taxiHeal
 const valetRush = new ValetRushService(world, scene); // Marina Hotel Valet: same frame-loop pattern; world.valetRush feeds the HUD
 world.valetRush = valetRush;
 let valetHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush };
+const tow = new TowService(world, scene); // Costa Tow Service: same frame-loop pattern; world.tow feeds the HUD
+world.tow = tow;
+let towHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow };
+
+// Per-frame context for tow.update; pays out and announces tow events.
+function towCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (towHealth !== null && towHealth.car === car) delta = Math.max(0, towHealth.hp - car.health);
+    towHealth = { car, hp: car.health };
+  } else {
+    towHealth = null;
+  }
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'tow') return;
+      if (ev.phase === 'hooked') world.notify('Stranded car hooked. Tow it to the orange ring.', 'info');
+      else if (ev.phase === 'paid') {
+        world.cash += ev.pay + ev.bonus;
+        world.notify(`TOW DELIVERED  +$${(ev.pay + ev.bonus).toLocaleString('en-US')}${ev.bonus ? `  (bonus $${ev.bonus})` : ''}`, 'mission');
+      } else if (ev.phase === 'snapped') world.notify('Tow cable snapped! Keep it under 25 m/s.', 'warn');
+      else if (ev.phase === 'failed') world.notify('Tow abandoned. No pay.', 'warn');
+    },
+  };
+}
 
 // Build the per-frame context taxi.update expects from the player's car and pay out / announce taxi events.
 function taxiCtx() {
@@ -243,7 +276,8 @@ function drawMinimap() {
     photo: photoTour.targetPos(),
     courier: foodCourier.targetPos(),
     valet: valetRush.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    tow: tow.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'gp' || shot === 'tow' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -258,6 +292,7 @@ if (shot) {
   else if (shot === 'photo') stagePhotoShot(world, photoTour, photoCtx, hud, ui); // Sunset Photo Tour hero frame (photoShot.js)
   else if (shot === 'courier') stageCourierShot(world, foodCourier, courierCtx, hud, ui); // Costa Food Delivery hero frame (foodCourierShot.js)
   else if (shot === 'valet') stageValetShot(world, valetRush, valetCtx, hud, ui); // Marina Hotel Valet hero frame (valetShot.js)
+  else if (shot === 'tow') stageTowShot(world, tow, towCtx, hud, ui); // Costa Tow Service hero frame (towShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -288,6 +323,7 @@ if (shot) {
       photoTour.update(dt, photoCtx());
       foodCourier.update(dt, courierCtx());
       valetRush.update(dt, valetCtx());
+      tow.update(dt, towCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

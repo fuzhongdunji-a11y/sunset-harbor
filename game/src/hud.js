@@ -30,6 +30,7 @@ export class Hud {
       speedUnit: $('speed-unit'), hullRow: $('hull-row'), hullPct: $('hull-pct'), hpTrack: $('hp-track'), trim: $('trim'),
       cbd: $('cbd'), cbdPips: [...document.querySelectorAll('#cbd-pips i')], cbdCount: $('cbd-count'), cbdTime: $('cbd-time'),
       cbdBonus: $('cbd-bonus'), cbdWarn: $('cbd-warn'), cbdLabel: $('cbd-label'),
+      tow: $('tow'), towLabel: $('tow-label'), towPay: $('tow-pay'), towDist: $('tow-dist'),
       taxi: $('taxi'), taxiLabel: $('taxi-label'), taxiFare: $('taxi-fare'), taxiDist: $('taxi-dist'),
       photo: $('photo-tour'), photoLabel: $('photo-label'), photoPay: $('photo-pay'), photoDist: $('photo-dist'), photoFlash: $('photo-flash'),
       courier: $('courier'), courierLabel: $('courier-label'), courierPay: $('courier-pay'), courierChain: $('courier-chain'), courierTimer: $('courier-timer'), courierDist: $('courier-dist'),
@@ -198,6 +199,18 @@ export class Hud {
     this._set('txl', e.taxiLabel, s.label);
     this._set('txf', e.taxiFare, s.fare > 0 ? `$${s.fare.toLocaleString('en-US')}${s.tip ? ` +$${s.tip}` : ''}` : '');
     this._set('txd', e.taxiDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Costa Tow Service: label, pay so far and the metres to the stranded car / drop-off ring.
+  _tow(world) {
+    const e = this.el;
+    const s = world.tow ? world.tow.hudState() : null;
+    const show = !!s && s.visible;
+    e.tow.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('twl', e.towLabel, s.label);
+    this._set('twp', e.towPay, `$${s.pay.toLocaleString('en-US')}`);
+    this._set('twd', e.towDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Sunset Photo Tour: job label, pay so far (base + photos taken) and the metres to the next ring.
@@ -561,6 +574,7 @@ export class Hud {
     }
     this._contraband(world);
     this._taxi(world);
+    this._tow(world);
     this._photoTour(world);
     this._courier(world);
     this._valet(world);

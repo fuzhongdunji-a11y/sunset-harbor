@@ -194,6 +194,26 @@ export class Minimap {
         g.restore();
       }
     }
+    // Costa Tow Service: a pulsing orange ring on the stranded car, then on the drop-off (clamped to the rim like the other job markers)
+    if (extras.tow) {
+      const t = extras.tow;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.arc(0, 0, far ? 6 : 7 + 1.8 * Math.sin(now * 5), 0, Math.PI * 2);
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.strokeStyle = '#ffa500';
+      g.lineWidth = 3;
+      g.stroke();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;
