@@ -37,6 +37,7 @@ export class Hud {
       valet: $('valet'), valetLabel: $('valet-label'), valetPay: $('valet-pay'), valetParks: $('valet-parks'), valetTimer: $('valet-timer'), valetDist: $('valet-dist'),
       loop: $('loop-tour'), loopLabel: $('loop-label'), loopPay: $('loop-pay'), loopStops: $('loop-stops'), loopTimer: $('loop-timer'), loopDist: $('loop-dist'),
       cashPickup: $('cash-pickup'), cashLabel: $('cash-label'), cashPay: $('cash-pay'), cashBags: $('cash-bags'), cashDist: $('cash-dist'),
+      medic: $('paramedic'), medicLabel: $('medic-label'), medicPay: $('medic-pay'), medicTimer: $('medic-timer'), medicDist: $('medic-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -273,6 +274,21 @@ export class Hud {
     this._set('lpt', e.loopTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.loopTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('lpd', e.loopDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Paramedic Rush: label, payout (only when > 0), patient countdown m:ss (cold under 10 s) and the metres to the scene / hospital.
+  _paramedic(world) {
+    const e = this.el;
+    const s = world.paramedic ? world.paramedic.hudState() : null;
+    const show = !!s && s.visible;
+    e.medic.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('mdl', e.medicLabel, s.label);
+    this._set('mdp', e.medicPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    const secs = Math.ceil(s.timeLeft);
+    this._set('mdt', e.medicTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.medicTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('mdd', e.medicDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Armored Cash Pickup: label, bag earnings so far, bags done / 4 and the metres to the next shop ring / the vault.
@@ -611,6 +627,7 @@ export class Hud {
     this._valet(world);
     this._loopTour(world);
     this._cashPickup(world);
+    this._paramedic(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));
