@@ -39,6 +39,8 @@ import { CheckpointRallyService } from './checkpointRally.js';
 import { stageRallyShot } from './rallyShot.js';
 import { RepoManService } from './repoMan.js';
 import { stageRepoShot } from './repoShot.js';
+import { SunsetEscortService } from './sunsetEscort.js';
+import { stageEscortShot } from './escortShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -96,7 +98,31 @@ world.checkpointRally = checkpointRally;
 let rallyHealth = null; // its own damage-delta source: separate from the other jobs
 const repoMan = new RepoManService(world, scene); // Repo Man: same frame-loop pattern; world.repoMan feeds the HUD (needs no damage-delta source)
 world.repoMan = repoMan;
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan };
+const sunsetEscort = new SunsetEscortService(world, scene); // Sunset Escort: same frame-loop pattern; world.sunsetEscort feeds the HUD (the VIP is never damaged, so no damage-delta source)
+world.sunsetEscort = sunsetEscort;
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort };
+
+// Per-frame context for sunsetEscort.update; credits pay + bonus exactly once per event and announces each phase.
+function escortCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: 0,
+    onEvent(ev) {
+      if (ev.type !== 'escort') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'met') world.notify('VIP on board - keep them 12-45 m behind you', 'mission');
+      else if (ev.phase === 'stop') world.notify(`ESCORT STOP  +${money(total)}`, 'mission');
+      else if (ev.phase === 'paid') world.notify(`SUNSET ESCORT COMPLETE  +${money(total)}${ev.bonus ? ' (trust bonus!)' : ''}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Sunset Escort failed - the VIP lost trust.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for repoMan.update; credits pay + bonus exactly once per event and announces each phase.
 function repoCtx() {
@@ -556,7 +582,8 @@ function drawMinimap() {
     stuntState: stuntDouble.state,
     rally: checkpointRally.targetPos(),
     repo: repoMan.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'rally' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    escort: sunsetEscort.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'rally' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -580,6 +607,7 @@ if (shot) {
   else if (shot === 'stunt') stageStuntShot(world, stuntDouble, stuntCtx, hud, ui); // Stunt Double hero frame (stuntShot.js)
   else if (shot === 'rally') stageRallyShot(world, checkpointRally, rallyCtx, hud, ui); // Checkpoint Rally hero frame (rallyShot.js)
   else if (shot === 'repo') stageRepoShot(world, repoMan, repoCtx, hud, ui); // Repo Man hero frame (repoShot.js)
+  else if (shot === 'escort') stageEscortShot(world, sunsetEscort, escortCtx, hud, ui); // Sunset Escort hero frame (escortShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -619,6 +647,7 @@ if (shot) {
       stuntDouble.update(dt, stuntCtx());
       checkpointRally.update(dt, rallyCtx());
       repoMan.update(dt, repoCtx());
+      sunsetEscort.update(dt, escortCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

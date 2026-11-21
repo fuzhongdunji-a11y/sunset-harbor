@@ -43,6 +43,7 @@ export class Hud {
       stunt: $('stunt-double'), stuntLabel: $('stunt-label'), stuntPay: $('stunt-pay'), stuntCount: $('stunt-count'), stuntTimer: $('stunt-timer'), stuntDist: $('stunt-dist'),
       rally: $('checkpoint-rally'), rallyLabel: $('rally-label'), rallyPay: $('rally-pay'), rallyCount: $('rally-count'), rallyTimer: $('rally-timer'), rallyDist: $('rally-dist'),
       repo: $('repo-man'), repoLabel: $('repo-label'), repoPay: $('repo-pay'), repoCount: $('repo-count'), repoDist: $('repo-dist'),
+      escort: $('sunset-escort'), escortLabel: $('escort-label'), escortPay: $('escort-pay'), escortCount: $('escort-count'), escortTrust: $('escort-trust'), escortDist: $('escort-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -339,6 +340,21 @@ export class Hud {
     this._set('rpp', e.repoPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
     this._set('rpc', e.repoCount, `cars ${s.carsDone}/${s.carsTotal}`);
     this._set('rpd', e.repoDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Sunset Escort: label, pay earned so far (only when > 0), stops n/4, VIP trust % (red under 30) and the metres to the VIP / current waypoint.
+  _escort(world) {
+    const e = this.el;
+    const s = world.sunsetEscort ? world.sunsetEscort.hudState() : null;
+    const show = !!s && s.visible;
+    e.escort.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('esl', e.escortLabel, s.label);
+    this._set('esp', e.escortPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('esc', e.escortCount, `stops ${s.stopsDone}/${s.stopsTotal}`);
+    this._set('est', e.escortTrust, `trust ${s.trust}`);
+    e.escortTrust.classList.toggle('low', s.trust < 30);
+    this._set('esd', e.escortDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   _rally(world) {
@@ -713,6 +729,7 @@ export class Hud {
     this._stunt(world);
     this._rally(world);
     this._repo(world);
+    this._escort(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

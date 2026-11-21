@@ -408,6 +408,34 @@ export class Minimap {
       g.fillRect(-2, -2, 4, 4);
       g.restore();
     }
+    // Sunset Escort: a pulsing violet diamond with a hollow diamond core on the VIP car / current waypoint (the radar rim clamps far ones)
+    if (extras.escort) {
+      const t = extras.escort;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#b26bff';
+      g.fill();
+      g.strokeStyle = '#efe0ff';
+      g.lineWidth = 1.5;
+      g.stroke();
+      const c = r * 0.4;
+      g.beginPath();
+      g.moveTo(0, -c); g.lineTo(c, 0); g.lineTo(0, c); g.lineTo(-c, 0); g.closePath();
+      g.fillStyle = '#1c0f2e';
+      g.fill();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;
