@@ -436,6 +436,34 @@ export class Minimap {
       g.fill();
       g.restore();
     }
+    // Drift King: a pulsing orange-red diamond with a white slanted slash core (a drift streak) on the current corner (the radar rim clamps far ones)
+    if (extras.drift) {
+      const t = extras.drift;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ff6a33';
+      g.fill();
+      g.strokeStyle = '#ffd9c7';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.beginPath();
+      g.moveTo(-r * 0.35, r * 0.35); g.lineTo(r * 0.35, -r * 0.35);
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 2;
+      g.stroke();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;

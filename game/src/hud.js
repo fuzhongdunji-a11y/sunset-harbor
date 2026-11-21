@@ -44,6 +44,7 @@ export class Hud {
       rally: $('checkpoint-rally'), rallyLabel: $('rally-label'), rallyPay: $('rally-pay'), rallyCount: $('rally-count'), rallyTimer: $('rally-timer'), rallyDist: $('rally-dist'),
       repo: $('repo-man'), repoLabel: $('repo-label'), repoPay: $('repo-pay'), repoCount: $('repo-count'), repoDist: $('repo-dist'),
       escort: $('sunset-escort'), escortLabel: $('escort-label'), escortPay: $('escort-pay'), escortCount: $('escort-count'), escortTrust: $('escort-trust'), escortDist: $('escort-dist'),
+      dking: $('drift-king'), dkingLabel: $('drift-label'), dkingPay: $('drift-pay'), dkingCount: $('drift-count'), dkingScore: $('drift-score'), dkingTimer: $('drift-timer'), dkingDist: $('drift-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -355,6 +356,23 @@ export class Hud {
     this._set('est', e.escortTrust, `trust ${s.trust}`);
     e.escortTrust.classList.toggle('low', s.trust < 30);
     this._set('esd', e.escortDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Drift King: label, earnings so far, corners n/6, drift score, countdown m:ss (cold under 10 s) and metres to the next corner.
+  _drift(world) {
+    const e = this.el;
+    const s = world.driftKing ? world.driftKing.hudState() : null;
+    const show = !!s && s.visible;
+    e.dking.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('dkl', e.dkingLabel, s.label);
+    this._set('dkp', e.dkingPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    const secs = Math.ceil(s.timeLeft);
+    this._set('dkc', e.dkingCount, `corners ${s.cornersDone}/${s.cornersTotal}`);
+    this._set('dks', e.dkingScore, `score ${s.score}`);
+    this._set('dkt', e.dkingTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.dkingTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('dkd', e.dkingDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   _rally(world) {
@@ -730,6 +748,7 @@ export class Hud {
     this._rally(world);
     this._repo(world);
     this._escort(world);
+    this._drift(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

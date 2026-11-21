@@ -41,6 +41,8 @@ import { RepoManService } from './repoMan.js';
 import { stageRepoShot } from './repoShot.js';
 import { SunsetEscortService } from './sunsetEscort.js';
 import { stageEscortShot } from './escortShot.js';
+import { DriftKingService } from './driftKing.js';
+import { stageDriftShot } from './driftShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -100,7 +102,31 @@ const repoMan = new RepoManService(world, scene); // Repo Man: same frame-loop p
 world.repoMan = repoMan;
 const sunsetEscort = new SunsetEscortService(world, scene); // Sunset Escort: same frame-loop pattern; world.sunsetEscort feeds the HUD (the VIP is never damaged, so no damage-delta source)
 world.sunsetEscort = sunsetEscort;
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort };
+const driftKing = new DriftKingService(world, scene); // Drift King: same frame-loop pattern; world.driftKing feeds the HUD (score comes from car.slip, no damage-delta source)
+world.driftKing = driftKing;
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing };
+
+// Per-frame context for driftKing.update; adds the car's slip value, credits pay + bonus exactly once per event.
+function driftCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    carSlip: car ? (car.slip || 0) : 0,
+    inCar: !!car,
+    carDamageDelta: 0,
+    onEvent(ev) {
+      if (ev.type !== 'drift') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'corner') world.notify(`DRIFT CORNER CLEARED  +${money(total)}`, 'mission');
+      else if (ev.phase === 'paid') world.notify(`DRIFT KING COMPLETE  +${money(total)}${ev.bonus ? ' (score bonus!)' : ''}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Drift King failed - out of time or out of the car.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for sunsetEscort.update; credits pay + bonus exactly once per event and announces each phase.
 function escortCtx() {
@@ -583,7 +609,8 @@ function drawMinimap() {
     rally: checkpointRally.targetPos(),
     repo: repoMan.targetPos(),
     escort: sunsetEscort.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'rally' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    drift: driftKing.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -608,6 +635,7 @@ if (shot) {
   else if (shot === 'rally') stageRallyShot(world, checkpointRally, rallyCtx, hud, ui); // Checkpoint Rally hero frame (rallyShot.js)
   else if (shot === 'repo') stageRepoShot(world, repoMan, repoCtx, hud, ui); // Repo Man hero frame (repoShot.js)
   else if (shot === 'escort') stageEscortShot(world, sunsetEscort, escortCtx, hud, ui); // Sunset Escort hero frame (escortShot.js)
+  else if (shot === 'drift') stageDriftShot(world, driftKing, driftCtx, hud, ui); // Drift King hero frame (driftShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -648,6 +676,7 @@ if (shot) {
       checkpointRally.update(dt, rallyCtx());
       repoMan.update(dt, repoCtx());
       sunsetEscort.update(dt, escortCtx());
+      driftKing.update(dt, driftCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();
