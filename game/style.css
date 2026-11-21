@@ -296,6 +296,13 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #fire-timer.cold { color: #ff5a4a; }
 #fire-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #ice-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#baggage-train { position: absolute; left: 50%; bottom: 646px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(4, 18, 30, 0.74); border-left: 4px solid #4dc3ff; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#baggage-label { color: #4dc3ff; font-size: 14px; }
+#baggage-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#baggage-count { font-size: 14px; font-variant-numeric: tabular-nums; color: #c4e8ff; }
+#baggage-coupled { font-size: 14px; color: #7fe0a8; }
+#baggage-coupled.loose { color: #ffb36b; }
+#baggage-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }
 #tow { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(24, 12, 2, 0.74); border-left: 4px solid #ffa500; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }

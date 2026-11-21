@@ -49,6 +49,8 @@ import { QuarryHaulService } from './quarryHaul.js';
 import { stageQuarryShot } from './quarryShot.js';
 import { FireWatchService } from './fireWatch.js';
 import { stageFireShot } from './fireWatchShot.js';
+import { BaggageTrainService } from './baggageTrain.js';
+import { stageBaggageShot } from './baggageShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -118,7 +120,40 @@ let quarryHealth = null; // its own damage-delta source: separate from the other
 const fire = new FireWatchService(world, scene); // Fire Watch: same frame-loop pattern; world.fire feeds the HUD
 world.fire = fire;
 let fireHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire };
+const baggage = new BaggageTrainService(world, scene); // Airport Baggage Train: same frame-loop pattern; world.baggage feeds the HUD
+world.baggage = baggage;
+let baggageHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage };
+
+// Per-frame context for baggage.update; credits pay + bonus exactly once per event and announces each phase.
+function baggageCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (baggageHealth !== null && baggageHealth.car === car) delta = Math.max(0, baggageHealth.hp - car.health);
+    baggageHealth = { car, hp: car.health };
+  } else {
+    baggageHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'baggage') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'coupled') world.notify('CART COUPLED - tow it to the plane', 'mission');
+      else if (ev.phase === 'detached') world.notify('Cart came loose! Go back and re-couple it.', 'warn');
+      else if (ev.phase === 'delivered') world.notify(`BAGGAGE DELIVERED  +${money(total)}`, 'mission');
+      else if (ev.phase === 'paid') world.notify(`BAGGAGE TRAIN COMPLETE  +${money(total)}${ev.bonus ? ' (all safe!)' : ''}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Baggage Train failed - you left the tug too long.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for fire.update; credits pay + bonus exactly once per event and announces each phase.
 function fireCtx() {
@@ -705,7 +740,8 @@ function drawMinimap() {
     icecream: iceCream.targetPos(),
     quarry: quarry.targetPos(),
     fire: fire.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'icecream' || shot === 'fire' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    baggage: baggage.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'icecream' || shot === 'fire' || shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -734,6 +770,7 @@ if (shot) {
   else if (shot === 'icecream') stageIceCreamShot(world, iceCream, iceCreamCtx, hud, ui); // Ice Cream Truck hero frame (iceCreamShot.js)
   else if (shot === 'quarry') stageQuarryShot(world, quarry, quarryCtx, hud, ui); // Quarry Haul hero frame (quarryShot.js)
   else if (shot === 'fire') stageFireShot(world, fire, fireCtx, hud, ui); // Fire Watch hero frame (fireWatchShot.js)
+  else if (shot === 'baggage') stageBaggageShot(world, baggage, baggageCtx, hud, ui); // Baggage Train hero frame (baggageShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -778,6 +815,7 @@ if (shot) {
       iceCream.update(dt, iceCreamCtx());
       quarry.update(dt, quarryCtx());
       fire.update(dt, fireCtx());
+      baggage.update(dt, baggageCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();
