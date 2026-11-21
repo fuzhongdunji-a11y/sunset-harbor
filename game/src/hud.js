@@ -42,6 +42,7 @@ export class Hud {
       buggy: $('buggy-roundup'), buggyLabel: $('buggy-label'), buggyPay: $('buggy-pay'), buggyCount: $('buggy-count'),buggyTimer: $('buggy-timer'), buggyDist: $('buggy-dist'),
       stunt: $('stunt-double'), stuntLabel: $('stunt-label'), stuntPay: $('stunt-pay'), stuntCount: $('stunt-count'), stuntTimer: $('stunt-timer'), stuntDist: $('stunt-dist'),
       rally: $('checkpoint-rally'), rallyLabel: $('rally-label'), rallyPay: $('rally-pay'), rallyCount: $('rally-count'), rallyTimer: $('rally-timer'), rallyDist: $('rally-dist'),
+      repo: $('repo-man'), repoLabel: $('repo-label'), repoPay: $('repo-pay'), repoCount: $('repo-count'), repoDist: $('repo-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -328,6 +329,18 @@ export class Hud {
   }
 
   // Checkpoint Rally: label, pay earned so far (only when > 0), gates n/6, round countdown m:ss (cold under 10 s) and the metres to the current gate.
+  _repo(world) {
+    const e = this.el;
+    const s = world.repoMan ? world.repoMan.hudState() : null;
+    const show = !!s && s.visible;
+    e.repo.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('rpl', e.repoLabel, s.label);
+    this._set('rpp', e.repoPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('rpc', e.repoCount, `cars ${s.carsDone}/${s.carsTotal}`);
+    this._set('rpd', e.repoDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
   _rally(world) {
     const e = this.el;
     const s = world.checkpointRally ? world.checkpointRally.hudState() : null;
@@ -699,6 +712,7 @@ export class Hud {
     this._buggy(world);
     this._stunt(world);
     this._rally(world);
+    this._repo(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

@@ -383,6 +383,31 @@ export class Minimap {
       g.fill();
       g.restore();
     }
+    // Repo Man: a pulsing crimson diamond with a dark core on the current target car or depot (the radar rim clamps far ones)
+    if (extras.repo) {
+      const t = extras.repo;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ff3355';
+      g.fill();
+      g.strokeStyle = '#ffd0d8';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#2a0a12';
+      g.fillRect(-2, -2, 4, 4);
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;
