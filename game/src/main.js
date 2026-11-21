@@ -45,6 +45,8 @@ import { DriftKingService } from './driftKing.js';
 import { stageDriftShot } from './driftShot.js';
 import { IceCreamTruckService } from './iceCreamTruck.js';
 import { stageIceCreamShot } from './iceCreamShot.js';
+import { QuarryHaulService } from './quarryHaul.js';
+import { stageQuarryShot } from './quarryShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -108,7 +110,39 @@ const driftKing = new DriftKingService(world, scene); // Drift King: same frame-
 world.driftKing = driftKing;
 const iceCream = new IceCreamTruckService(world, scene); // Ice Cream Truck: same frame-loop pattern; world.iceCream feeds the HUD (no damage-delta source)
 world.iceCream = iceCream;
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream };
+const quarry = new QuarryHaulService(world, scene); // Quarry Haul: same frame-loop pattern; world.quarry feeds the HUD
+world.quarry = quarry;
+let quarryHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry };
+
+// Per-frame context for quarry.update; credits pay + bonus exactly once per event and announces each phase.
+function quarryCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (quarryHealth !== null && quarryHealth.car === car) delta = Math.max(0, quarryHealth.hp - car.health);
+    quarryHealth = { car, hp: car.health };
+  } else {
+    quarryHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'quarry') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'loaded') world.notify('CRATES LOADED - haul them to the site', 'mission');
+      else if (ev.phase === 'trip') world.notify(`LOAD DELIVERED  +${money(total)}`, 'mission');
+      else if (ev.phase === 'paid') world.notify(`QUARRY HAUL COMPLETE  +${money(total)}${ev.bonus ? ' (clean!)' : ''}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Quarry Haul failed - you left the truck too long.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for iceCream.update; credits pay + bonus exactly once per event.
 function iceCreamCtx() {
@@ -636,7 +670,8 @@ function drawMinimap() {
     escort: sunsetEscort.targetPos(),
     drift: driftKing.targetPos(),
     icecream: iceCream.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'icecream' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    quarry: quarry.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'icecream' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -663,6 +698,7 @@ if (shot) {
   else if (shot === 'escort') stageEscortShot(world, sunsetEscort, escortCtx, hud, ui); // Sunset Escort hero frame (escortShot.js)
   else if (shot === 'drift') stageDriftShot(world, driftKing, driftCtx, hud, ui); // Drift King hero frame (driftShot.js)
   else if (shot === 'icecream') stageIceCreamShot(world, iceCream, iceCreamCtx, hud, ui); // Ice Cream Truck hero frame (iceCreamShot.js)
+  else if (shot === 'quarry') stageQuarryShot(world, quarry, quarryCtx, hud, ui); // Quarry Haul hero frame (quarryShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -705,6 +741,7 @@ if (shot) {
       sunsetEscort.update(dt, escortCtx());
       driftKing.update(dt, driftCtx());
       iceCream.update(dt, iceCreamCtx());
+      quarry.update(dt, quarryCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

@@ -46,6 +46,7 @@ export class Hud {
       escort: $('sunset-escort'), escortLabel: $('escort-label'), escortPay: $('escort-pay'), escortCount: $('escort-count'), escortTrust: $('escort-trust'), escortDist: $('escort-dist'),
       dking: $('drift-king'), dkingLabel: $('drift-label'), dkingPay: $('drift-pay'), dkingCount: $('drift-count'), dkingScore: $('drift-score'), dkingTimer: $('drift-timer'), dkingDist: $('drift-dist'),
       ice: $('ice-cream'), iceLabel: $('ice-label'), icePay: $('ice-pay'), iceCount: $('ice-count'), iceSell: $('ice-sell'), iceTimer: $('ice-timer'), iceDist: $('ice-dist'),
+      quarry: $('quarry-haul'), quarryLabel: $('quarry-label'), quarryPay: $('quarry-pay'), quarryTrips: $('quarry-trips'), quarryCargo: $('quarry-cargo'), quarryDist: $('quarry-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -374,6 +375,20 @@ export class Hud {
     this._set('ict', e.iceTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.iceTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('icd', e.iceDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Quarry Haul: label, earnings so far, trips n/3, cargo % and metres to the quarry / site.
+  _quarry(world) {
+    const e = this.el;
+    const s = world.quarry ? world.quarry.hudState() : null;
+    const show = !!s && s.visible;
+    e.quarry.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('qhl', e.quarryLabel, s.label);
+    this._set('qhp', e.quarryPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('qht', e.quarryTrips, `trips ${s.tripsDone}/${s.tripsTotal}`);
+    this._set('qhc', e.quarryCargo, `cargo ${Math.round(s.cargoFrac * 100)}%`);
+    this._set('qhd', e.quarryDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Drift King: label, earnings so far, corners n/6, drift score, countdown m:ss (cold under 10 s) and metres to the next corner.
@@ -768,6 +783,7 @@ export class Hud {
     this._escort(world);
     this._drift(world);
     this._iceCream(world);
+    this._quarry(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));
