@@ -287,6 +287,14 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #quarry-trips { font-size: 14px; font-variant-numeric: tabular-nums; color: #ffe6b0; }
 #quarry-cargo { font-size: 14px; font-variant-numeric: tabular-nums; color: #ffd070; }
 #quarry-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#fire-watch { position: absolute; left: 50%; bottom: 622px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(34, 10, 4, 0.74); border-left: 4px solid #ff5522; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#fire-label { color: #ff5522; font-size: 14px; }
+#fire-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#fire-count { font-size: 14px; font-variant-numeric: tabular-nums; color: #ffd0bd; }
+#fire-douse { font-size: 14px; font-variant-numeric: tabular-nums; color: #ff9a70; }
+#fire-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #ffc9ad; }
+#fire-timer.cold { color: #ff5a4a; }
+#fire-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #ice-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }

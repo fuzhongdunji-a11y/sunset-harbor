@@ -47,6 +47,7 @@ export class Hud {
       dking: $('drift-king'), dkingLabel: $('drift-label'), dkingPay: $('drift-pay'), dkingCount: $('drift-count'), dkingScore: $('drift-score'), dkingTimer: $('drift-timer'), dkingDist: $('drift-dist'),
       ice: $('ice-cream'), iceLabel: $('ice-label'), icePay: $('ice-pay'), iceCount: $('ice-count'), iceSell: $('ice-sell'), iceTimer: $('ice-timer'), iceDist: $('ice-dist'),
       quarry: $('quarry-haul'), quarryLabel: $('quarry-label'), quarryPay: $('quarry-pay'), quarryTrips: $('quarry-trips'), quarryCargo: $('quarry-cargo'), quarryDist: $('quarry-dist'),
+      fireWatch: $('fire-watch'), fireWatchLabel: $('fire-label'), fireWatchPay: $('fire-pay'), fireWatchCount: $('fire-count'), fireWatchDouse: $('fire-douse'), fireWatchTimer: $('fire-timer'), fireWatchDist: $('fire-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -389,6 +390,23 @@ export class Hud {
     this._set('qht', e.quarryTrips, `trips ${s.tripsDone}/${s.tripsTotal}`);
     this._set('qhc', e.quarryCargo, `cargo ${Math.round(s.cargoFrac * 100)}%`);
     this._set('qhd', e.quarryDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Fire Watch: label, earnings so far, fires n/4, douse progress %, per-fire countdown m:ss (cold under 10 s) and metres to the blaze.
+  _fireWatch(world) {
+    const e = this.el;
+    const s = world.fire ? world.fire.hudState() : null;
+    const show = !!s && s.visible;
+    e.fireWatch.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('fwl', e.fireWatchLabel, s.label);
+    this._set('fwp', e.fireWatchPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('fwc', e.fireWatchCount, `fires ${s.firesDone}/${s.firesTotal}`);
+    this._set('fwu', e.fireWatchDouse, `douse ${Math.round(s.douseFrac * 100)}%`);
+    const secs = Math.ceil(s.timeLeft);
+    this._set('fwt', e.fireWatchTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.fireWatchTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('fwd', e.fireWatchDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Drift King: label, earnings so far, corners n/6, drift score, countdown m:ss (cold under 10 s) and metres to the next corner.
@@ -784,6 +802,7 @@ export class Hud {
     this._drift(world);
     this._iceCream(world);
     this._quarry(world);
+    this._fireWatch(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

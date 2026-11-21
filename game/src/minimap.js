@@ -517,6 +517,33 @@ export class Minimap {
       g.fillRect(-r * 0.22, -r * 0.22, r * 0.44, r * 0.44);
       g.restore();
     }
+    // Fire Watch: a pulsing red-orange diamond with a dark flame-tip triangle on the current blaze (the radar rim clamps far ones)
+    if (extras.fire) {
+      const t = extras.fire;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ff5522';
+      g.fill();
+      g.strokeStyle = '#ffd2c2';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#3a0c00';
+      g.beginPath();
+      g.moveTo(0, -r * 0.45); g.lineTo(r * 0.3, r * 0.3); g.lineTo(-r * 0.3, r * 0.3); g.closePath();
+      g.fill();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;
