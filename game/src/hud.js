@@ -41,6 +41,7 @@ export class Hud {
       fuel: $('fuel-run'), fuelLabel: $('fuel-label'), fuelPay: $('fuel-pay'), fuelTimer: $('fuel-timer'), fuelDist: $('fuel-dist'),
       buggy: $('buggy-roundup'), buggyLabel: $('buggy-label'), buggyPay: $('buggy-pay'), buggyCount: $('buggy-count'),buggyTimer: $('buggy-timer'), buggyDist: $('buggy-dist'),
       stunt: $('stunt-double'), stuntLabel: $('stunt-label'), stuntPay: $('stunt-pay'), stuntCount: $('stunt-count'), stuntTimer: $('stunt-timer'), stuntDist: $('stunt-dist'),
+      rally: $('checkpoint-rally'), rallyLabel: $('rally-label'), rallyPay: $('rally-pay'), rallyCount: $('rally-count'), rallyTimer: $('rally-timer'), rallyDist: $('rally-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -324,6 +325,22 @@ export class Hud {
     this._set('sdt', e.stuntTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.stuntTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('sdd', e.stuntDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Checkpoint Rally: label, pay earned so far (only when > 0), gates n/6, round countdown m:ss (cold under 10 s) and the metres to the current gate.
+  _rally(world) {
+    const e = this.el;
+    const s = world.checkpointRally ? world.checkpointRally.hudState() : null;
+    const show = !!s && s.visible;
+    e.rally.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('rgl', e.rallyLabel, s.label);
+    this._set('rgp', e.rallyPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    const secs = Math.ceil(s.timeLeft);
+    this._set('rgc', e.rallyCount, `${s.gatesDone}/${s.gatesTotal}`);
+    this._set('rgt', e.rallyTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.rallyTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('rgd', e.rallyDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Harbor Fuel Run: label, per-boat earnings so far (only when > 0), leg countdown m:ss (cold under 10 s) and the metres to the depot / berth.
@@ -681,6 +698,7 @@ export class Hud {
     this._fuelRun(world);
     this._buggy(world);
     this._stunt(world);
+    this._rally(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));
