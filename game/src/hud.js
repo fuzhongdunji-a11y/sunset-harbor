@@ -45,6 +45,7 @@ export class Hud {
       repo: $('repo-man'), repoLabel: $('repo-label'), repoPay: $('repo-pay'), repoCount: $('repo-count'), repoDist: $('repo-dist'),
       escort: $('sunset-escort'), escortLabel: $('escort-label'), escortPay: $('escort-pay'), escortCount: $('escort-count'), escortTrust: $('escort-trust'), escortDist: $('escort-dist'),
       dking: $('drift-king'), dkingLabel: $('drift-label'), dkingPay: $('drift-pay'), dkingCount: $('drift-count'), dkingScore: $('drift-score'), dkingTimer: $('drift-timer'), dkingDist: $('drift-dist'),
+      ice: $('ice-cream'), iceLabel: $('ice-label'), icePay: $('ice-pay'), iceCount: $('ice-count'), iceSell: $('ice-sell'), iceTimer: $('ice-timer'), iceDist: $('ice-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -356,6 +357,23 @@ export class Hud {
     this._set('est', e.escortTrust, `trust ${s.trust}`);
     e.escortTrust.classList.toggle('low', s.trust < 30);
     this._set('esd', e.escortDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Ice Cream Truck: label, earnings so far, stops n/5, sell progress %, leg countdown m:ss (cold under 10 s) and metres to the stop.
+  _iceCream(world) {
+    const e = this.el;
+    const s = world.iceCream ? world.iceCream.hudState() : null;
+    const show = !!s && s.visible;
+    e.ice.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('icl', e.iceLabel, s.label);
+    this._set('icp', e.icePay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    const secs = Math.ceil(s.timeLeft);
+    this._set('icc', e.iceCount, `stops ${s.stopsDone}/${s.stopsTotal}`);
+    this._set('ics', e.iceSell, `selling ${Math.round(s.sellProgress * 100)}%`);
+    this._set('ict', e.iceTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
+    e.iceTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
+    this._set('icd', e.iceDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Drift King: label, earnings so far, corners n/6, drift score, countdown m:ss (cold under 10 s) and metres to the next corner.
@@ -749,6 +767,7 @@ export class Hud {
     this._repo(world);
     this._escort(world);
     this._drift(world);
+    this._iceCream(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

@@ -274,6 +274,14 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #drift-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #ffc9ad; }
 #drift-timer.cold { color: #ff5a4a; }
 #drift-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#ice-cream { position: absolute; left: 50%; bottom: 574px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(34, 8, 22, 0.74); border-left: 4px solid #ff7ab6; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#ice-label { color: #ff7ab6; font-size: 14px; }
+#ice-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#ice-count { font-size: 14px; font-variant-numeric: tabular-nums; color: #ffe0ef; }
+#ice-sell { font-size: 14px; font-variant-numeric: tabular-nums; color: #ffb3d6; }
+#ice-timer { font-size: 16px; font-variant-numeric: tabular-nums; color: #ffc9e0; }
+#ice-timer.cold { color: #ff5a4a; }
+#ice-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }
 #tow { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(24, 12, 2, 0.74); border-left: 4px solid #ffa500; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }

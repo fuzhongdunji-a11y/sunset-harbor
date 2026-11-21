@@ -464,6 +464,34 @@ export class Minimap {
       g.stroke();
       g.restore();
     }
+    // Ice Cream Truck: a pulsing pink diamond with a hollow white ring core on the current stop (the radar rim clamps far ones)
+    if (extras.icecream) {
+      const t = extras.icecream;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.4 * Math.sin(now * 4);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ff7ab6';
+      g.fill();
+      g.strokeStyle = '#ffe0ef';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.beginPath();
+      g.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.6;
+      g.stroke();
+      g.restore();
+    }
     // Costa Cab: a pulsing yellow ring with a dark outline on the current stand or drop-off (the radar rim clamps far ones like other markers)
     if (extras.taxi) {
       const t = extras.taxi;

@@ -43,6 +43,8 @@ import { SunsetEscortService } from './sunsetEscort.js';
 import { stageEscortShot } from './escortShot.js';
 import { DriftKingService } from './driftKing.js';
 import { stageDriftShot } from './driftShot.js';
+import { IceCreamTruckService } from './iceCreamTruck.js';
+import { stageIceCreamShot } from './iceCreamShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -104,7 +106,30 @@ const sunsetEscort = new SunsetEscortService(world, scene); // Sunset Escort: sa
 world.sunsetEscort = sunsetEscort;
 const driftKing = new DriftKingService(world, scene); // Drift King: same frame-loop pattern; world.driftKing feeds the HUD (score comes from car.slip, no damage-delta source)
 world.driftKing = driftKing;
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing };
+const iceCream = new IceCreamTruckService(world, scene); // Ice Cream Truck: same frame-loop pattern; world.iceCream feeds the HUD (no damage-delta source)
+world.iceCream = iceCream;
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream };
+
+// Per-frame context for iceCream.update; credits pay + bonus exactly once per event.
+function iceCreamCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: 0,
+    onEvent(ev) {
+      if (ev.type !== 'icecream') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'stop') world.notify(`ICE CREAM SOLD  +${money(total)}${ev.bonus ? ' (fast bonus!)' : ''}`, 'mission');
+      else if (ev.phase === 'paid') world.notify(`ICE CREAM ROUTE COMPLETE  +${money(total)}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Ice Cream Truck failed - you left the car too long.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for driftKing.update; adds the car's slip value, credits pay + bonus exactly once per event.
 function driftCtx() {
@@ -610,7 +635,8 @@ function drawMinimap() {
     repo: repoMan.targetPos(),
     escort: sunsetEscort.targetPos(),
     drift: driftKing.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    icecream: iceCream.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'icecream' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -636,6 +662,7 @@ if (shot) {
   else if (shot === 'repo') stageRepoShot(world, repoMan, repoCtx, hud, ui); // Repo Man hero frame (repoShot.js)
   else if (shot === 'escort') stageEscortShot(world, sunsetEscort, escortCtx, hud, ui); // Sunset Escort hero frame (escortShot.js)
   else if (shot === 'drift') stageDriftShot(world, driftKing, driftCtx, hud, ui); // Drift King hero frame (driftShot.js)
+  else if (shot === 'icecream') stageIceCreamShot(world, iceCream, iceCreamCtx, hud, ui); // Ice Cream Truck hero frame (iceCreamShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -677,6 +704,7 @@ if (shot) {
       repoMan.update(dt, repoCtx());
       sunsetEscort.update(dt, escortCtx());
       driftKing.update(dt, driftCtx());
+      iceCream.update(dt, iceCreamCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();
