@@ -51,6 +51,8 @@ import { FireWatchService } from './fireWatch.js';
 import { stageFireShot } from './fireWatchShot.js';
 import { NightMarketService } from './nightMarket.js';
 import { stageNightMarketShot } from './nightMarketShot.js';
+import { RegattaSupportService } from './regattaSupport.js';
+import { stageRegattaShot } from './regattaShot.js';
 import { BaggageTrainService } from './baggageTrain.js';
 import { stageBaggageShot } from './baggageShot.js';
 import { LighthouseSupplyService } from './lighthouseSupply.js';
@@ -137,7 +139,9 @@ world.lighthouse = lighthouse;
 let lighthouseHealth = null; // its own damage-delta source: separate from the other jobs
 const market = new NightMarketService(world, scene); // Night Market Run: same frame-loop pattern; world.market feeds the HUD
 world.market = market;
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage, sweeper, lighthouse, market };
+const regatta = new RegattaSupportService(world, scene); // Regatta Support: same frame-loop pattern; world.regatta feeds the HUD
+world.regatta = regatta;
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage, sweeper, lighthouse, market, regatta };
 
 // Per-frame context for sweeper.update; credits pay + bonus exactly once per event (only 'paid' carries money).
 function sweeperCtx() {
@@ -222,6 +226,26 @@ function lighthouseCtx() {
       else if (ev.phase === 'checkpoint') world.notify('Checkpoint! +25s', 'mission');
       else if (ev.phase === 'paid') world.notify(`LIGHTHOUSE SUPPLIED  +${money(total)}${ev.bonus > 0 ? ' (intact!)' : ''}`, 'mission');
       else if (ev.phase === 'failed') world.notify('Lighthouse Supply failed.', 'warn');
+    },
+  };
+}
+
+// Per-frame context for regatta.update; credits pay + bonus exactly once per event and announces each phase.
+function regattaCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    onEvent(ev) {
+      if (ev.type !== 'regatta') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'installed') world.notify(`REGATTA BUOY SET  +${money(total)}`, 'mission');
+      else if (ev.phase === 'paid') world.notify(`REGATTA SUPPORT DONE  +${money(total)} (bonus ${money(ev.bonus)})`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Regatta Support failed - the race started without you.', 'warn');
     },
   };
 }
@@ -835,7 +859,8 @@ function drawMinimap() {
     sweeper: sweeper.targetPos(),
     lighthouse: lighthouse.targetPos(),
     market: market.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'lighthouse' || shot === 'sweeper' || shot === 'icecream' || shot === 'fire' || shot === 'market' ||shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    regatta: regatta.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'regatta' ||shot === 'lighthouse' || shot === 'sweeper' || shot === 'icecream' || shot === 'fire' || shot === 'market' ||shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -864,6 +889,7 @@ if (shot) {
   else if (shot === 'icecream') stageIceCreamShot(world, iceCream, iceCreamCtx, hud, ui); // Ice Cream Truck hero frame (iceCreamShot.js)
   else if (shot === 'quarry') stageQuarryShot(world, quarry, quarryCtx, hud, ui); // Quarry Haul hero frame (quarryShot.js)
   else if (shot === 'market') stageNightMarketShot(world, market, marketCtx, hud, ui); // Night Market Run hero frame (nightMarketShot.js)
+  else if (shot === 'regatta') stageRegattaShot(world, regatta, regattaCtx, hud, ui); // Regatta Support hero frame (regattaShot.js)
   else if (shot === 'fire') stageFireShot(world, fire, fireCtx, hud, ui); // Fire Watch hero frame (fireWatchShot.js)
   else if (shot === 'baggage') stageBaggageShot(world, baggage, baggageCtx, hud, ui); // Baggage Train hero frame (baggageShot.js)
   else if (shot === 'sweeper') stageSweeperShot(world, sweeper, sweeperCtx, hud, ui); // Street Sweeper hero frame (streetSweeperShot.js)
@@ -916,6 +942,7 @@ if (shot) {
       sweeper.update(dt, sweeperCtx());
       lighthouse.update(dt, lighthouseCtx());
       market.update(dt, marketCtx());
+      regatta.update(dt, regattaCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

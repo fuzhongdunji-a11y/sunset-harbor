@@ -544,6 +544,33 @@ export class Minimap {
       g.fill();
       g.restore();
     }
+    // Regatta Support: a pulsing sea-blue diamond with a white buoy dot + pale outline on the current site (rim-clamped when far)
+    if (extras.regatta) {
+      const t = extras.regatta;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far && d > 0) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.2 * Math.sin(now * 3);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#33ccff';
+      g.fill();
+      g.strokeStyle = '#d9f6ff';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
     // Night Market Run: a pulsing warm-orange diamond with a dark awning bar + cream outline on the current stall (rim-clamped when far)
     if (extras.market) {
       const t = extras.market;
