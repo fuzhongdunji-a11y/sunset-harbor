@@ -49,6 +49,7 @@ export class Hud {
       quarry: $('quarry-haul'), quarryLabel: $('quarry-label'), quarryPay: $('quarry-pay'), quarryTrips: $('quarry-trips'), quarryCargo: $('quarry-cargo'), quarryDist: $('quarry-dist'),
       fireWatch: $('fire-watch'), fireWatchLabel: $('fire-label'), fireWatchPay: $('fire-pay'), fireWatchCount: $('fire-count'), fireWatchDouse: $('fire-douse'), fireWatchTimer: $('fire-timer'), fireWatchDist: $('fire-dist'),
       baggage: $('baggage-train'), baggageLabel: $('baggage-label'), baggagePay: $('baggage-pay'), baggageCount: $('baggage-count'), baggageCoupled: $('baggage-coupled'), baggageDist: $('baggage-dist'),
+      sweeper: $('street-sweeper'), sweeperLabel: $('sweeper-label'), sweeperPay: $('sweeper-pay'), sweeperCount: $('sweeper-count'), sweeperClean: $('sweeper-clean'), sweeperDist: $('sweeper-dist'),
     };
     this._buildAir();
     this.customsHud = new CustomsHud(this.root); // Solaris Customs panel, nitrous gauge, export pill
@@ -408,6 +409,20 @@ export class Hud {
     this._set('fwt', e.fireWatchTimer, s.timeTotal > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : '');
     e.fireWatchTimer.classList.toggle('cold', s.timeTotal > 0 && s.timeLeft < 10);
     this._set('fwd', e.fireWatchDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Street Sweeper: label, projected pay, checkpoints n/5, clean %, metres to the checkpoint.
+  _sweeper(world) {
+    const e = this.el;
+    const s = world.sweeper ? world.sweeper.hudState() : null;
+    const show = !!s && s.visible;
+    e.sweeper.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('swl', e.sweeperLabel, s.label);
+    this._set('swp', e.sweeperPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('swc', e.sweeperCount, `checkpoints ${s.checkpoint}/${s.checkpointsTotal}`);
+    this._set('swk', e.sweeperClean, `clean ${Math.round(s.cleanRate * 100)}%`);
+    this._set('swd', e.sweeperDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Airport Baggage Train: label, earnings so far, planes n/3, coupled indicator and metres to the cart / plane.
@@ -820,6 +835,7 @@ export class Hud {
     this._quarry(world);
     this._fireWatch(world);
     this._baggage(world);
+    this._sweeper(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));

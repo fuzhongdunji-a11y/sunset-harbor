@@ -303,6 +303,12 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #baggage-coupled { font-size: 14px; color: #7fe0a8; }
 #baggage-coupled.loose { color: #ffb36b; }
 #baggage-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#street-sweeper { position: absolute; left: 50%; bottom: 670px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(2, 26, 22, 0.74); border-left: 4px solid #35f2c8; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#sweeper-label { color: #35f2c8; font-size: 14px; }
+#sweeper-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
+#sweeper-count { font-size: 14px; font-variant-numeric: tabular-nums; color: #c8fff2; }
+#sweeper-clean { font-size: 14px; font-variant-numeric: tabular-nums; color: #8ff7de; }
+#sweeper-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #photo-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
 #photo-flash.on { opacity: 0.85; transition: none; }
 #tow { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(24, 12, 2, 0.74); border-left: 4px solid #ffa500; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }

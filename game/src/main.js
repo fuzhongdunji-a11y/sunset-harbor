@@ -51,6 +51,8 @@ import { FireWatchService } from './fireWatch.js';
 import { stageFireShot } from './fireWatchShot.js';
 import { BaggageTrainService } from './baggageTrain.js';
 import { stageBaggageShot } from './baggageShot.js';
+import { StreetSweeperService } from './streetSweeper.js';
+import { stageSweeperShot } from './streetSweeperShot.js';
 
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
@@ -123,7 +125,38 @@ let fireHealth = null; // its own damage-delta source: separate from the other j
 const baggage = new BaggageTrainService(world, scene); // Airport Baggage Train: same frame-loop pattern; world.baggage feeds the HUD
 world.baggage = baggage;
 let baggageHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage };
+const sweeper = new StreetSweeperService(world, scene); // Street Sweeper: same frame-loop pattern; world.sweeper feeds the HUD
+world.sweeper = sweeper;
+let sweeperHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage, sweeper };
+
+// Per-frame context for sweeper.update; credits pay + bonus exactly once per event (only 'paid' carries money).
+function sweeperCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (sweeperHealth !== null && sweeperHealth.car === car) delta = Math.max(0, sweeperHealth.hp - car.health);
+    sweeperHealth = { car, hp: car.health };
+  } else {
+    sweeperHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'sweeper') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'checkpoint') world.notify('CHECKPOINT SWEPT', 'mission');
+      else if (ev.phase === 'paid') world.notify(`STREET SWEEPER COMPLETE  +${money(total)}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Street Sweeper failed - you left the sweeper too long.', 'warn');
+    },
+  };
+}
 
 // Per-frame context for baggage.update; credits pay + bonus exactly once per event and announces each phase.
 function baggageCtx() {
@@ -741,7 +774,8 @@ function drawMinimap() {
     quarry: quarry.targetPos(),
     fire: fire.targetPos(),
     baggage: baggage.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'icecream' || shot === 'fire' || shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    sweeper: sweeper.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'sweeper' || shot === 'icecream' || shot === 'fire' || shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -771,6 +805,7 @@ if (shot) {
   else if (shot === 'quarry') stageQuarryShot(world, quarry, quarryCtx, hud, ui); // Quarry Haul hero frame (quarryShot.js)
   else if (shot === 'fire') stageFireShot(world, fire, fireCtx, hud, ui); // Fire Watch hero frame (fireWatchShot.js)
   else if (shot === 'baggage') stageBaggageShot(world, baggage, baggageCtx, hud, ui); // Baggage Train hero frame (baggageShot.js)
+  else if (shot === 'sweeper') stageSweeperShot(world, sweeper, sweeperCtx, hud, ui); // Street Sweeper hero frame (streetSweeperShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -816,6 +851,7 @@ if (shot) {
       quarry.update(dt, quarryCtx());
       fire.update(dt, fireCtx());
       baggage.update(dt, baggageCtx());
+      sweeper.update(dt, sweeperCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();
