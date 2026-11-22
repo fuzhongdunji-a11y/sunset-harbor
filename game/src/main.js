@@ -51,6 +51,8 @@ import { FireWatchService } from './fireWatch.js';
 import { stageFireShot } from './fireWatchShot.js';
 import { BaggageTrainService } from './baggageTrain.js';
 import { stageBaggageShot } from './baggageShot.js';
+import { LighthouseSupplyService } from './lighthouseSupply.js';
+import { stageLighthouseShot } from './lighthouseShot.js';
 import { StreetSweeperService } from './streetSweeper.js';
 import { stageSweeperShot } from './streetSweeperShot.js';
 
@@ -128,7 +130,10 @@ let baggageHealth = null; // its own damage-delta source: separate from the othe
 const sweeper = new StreetSweeperService(world, scene); // Street Sweeper: same frame-loop pattern; world.sweeper feeds the HUD
 world.sweeper = sweeper;
 let sweeperHealth = null; // its own damage-delta source: separate from the other jobs
-window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage, sweeper };
+const lighthouse = new LighthouseSupplyService(world, scene); // Lighthouse Supply: same frame-loop pattern; world.lighthouse feeds the HUD
+world.lighthouse = lighthouse;
+let lighthouseHealth = null; // its own damage-delta source: separate from the other jobs
+window.__game = { world, renderer, air, gp, taxi, photoTour, foodCourier, valetRush, tow, loopTour, cashPickup, paramedic, fuelRun, buggyRoundup, stuntDouble, checkpointRally, repoMan, sunsetEscort, driftKing, iceCream, quarry, fire, baggage, sweeper, lighthouse };
 
 // Per-frame context for sweeper.update; credits pay + bonus exactly once per event (only 'paid' carries money).
 function sweeperCtx() {
@@ -184,6 +189,35 @@ function baggageCtx() {
       else if (ev.phase === 'delivered') world.notify(`BAGGAGE DELIVERED  +${money(total)}`, 'mission');
       else if (ev.phase === 'paid') world.notify(`BAGGAGE TRAIN COMPLETE  +${money(total)}${ev.bonus ? ' (all safe!)' : ''}`, 'mission');
       else if (ev.phase === 'failed') world.notify('Baggage Train failed - you left the tug too long.', 'warn');
+    },
+  };
+}
+
+// Per-frame context for lighthouse.update; credits pay + bonus exactly once per event (only 'paid' carries money).
+function lighthouseCtx() {
+  const p = world.player;
+  const car = p.inCar && !p.vehicle.isBoat ? p.vehicle : null;
+  let delta = 0;
+  if (car) {
+    if (lighthouseHealth !== null && lighthouseHealth.car === car) delta = Math.max(0, lighthouseHealth.hp - car.health);
+    lighthouseHealth = { car, hp: car.health };
+  } else {
+    lighthouseHealth = null;
+  }
+  const money = (n) => `$${n.toLocaleString('en-US')}`;
+  return {
+    carPos: { x: p.px, z: p.pz },
+    carSpeed: car ? car.speedF : 0,
+    inCar: !!car,
+    carDamageDelta: delta,
+    onEvent(ev) {
+      if (ev.type !== 'lighthouse') return;
+      const total = ev.pay + ev.bonus;
+      world.cash += total;
+      if (ev.phase === 'loaded') world.notify('SUPPLIES LOADED - haul them to the lighthouse', 'mission');
+      else if (ev.phase === 'checkpoint') world.notify('Checkpoint! +25s', 'mission');
+      else if (ev.phase === 'paid') world.notify(`LIGHTHOUSE SUPPLIED  +${money(total)}${ev.bonus > 0 ? ' (intact!)' : ''}`, 'mission');
+      else if (ev.phase === 'failed') world.notify('Lighthouse Supply failed.', 'warn');
     },
   };
 }
@@ -775,7 +809,8 @@ function drawMinimap() {
     fire: fire.targetPos(),
     baggage: baggage.targetPos(),
     sweeper: sweeper.targetPos(),
-    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'sweeper' || shot === 'icecream' || shot === 'fire' || shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
+    lighthouse: lighthouse.targetPos(),
+    now: shot === 'airpursuit' ? air.time : shot === 'customs' || shot === 'lighthouse' || shot === 'sweeper' || shot === 'icecream' || shot === 'fire' || shot === 'baggage' || shot === 'quarry' || shot === 'rally' || shot === 'drift' || shot === 'escort' || shot === 'repo' || shot === 'fuel' || shot === 'buggy' || shot === 'stunt' || shot === 'gp' || shot === 'tow' || shot === 'loop' || shot === 'cash' || shot === 'medic' || shot === 'taxi' || shot === 'photo' || shot === 'courier' || shot === 'valet' ? 12.3 : undefined, // the Air-1 preset runs on its own fixed clock so the cruiser blink is identical on every load
     intercept: q && { x: q.x, z: q.z, h: q.h, dist: ic.dist, near: R_NEAR, far: R_FAR, outside: ic.dist > R_FAR && ic.upload < 100 },
   });
   hud.drawAirMinimap(minimap, world, world.rig.yaw); // Air-1 spotlight disc, rotor icon and Spike-Pod ticks on top
@@ -806,6 +841,7 @@ if (shot) {
   else if (shot === 'fire') stageFireShot(world, fire, fireCtx, hud, ui); // Fire Watch hero frame (fireWatchShot.js)
   else if (shot === 'baggage') stageBaggageShot(world, baggage, baggageCtx, hud, ui); // Baggage Train hero frame (baggageShot.js)
   else if (shot === 'sweeper') stageSweeperShot(world, sweeper, sweeperCtx, hud, ui); // Street Sweeper hero frame (streetSweeperShot.js)
+  else if (shot === 'lighthouse') stageLighthouseShot(world, lighthouse, lighthouseCtx, hud, ui); // Lighthouse Supply hero frame (lighthouseShot.js)
   else prepareShot(shot, { world, hud, ui });
   hud.update(0, world); // dt 0: refresh the Air-1 pill/glare and the other HUD readouts once more so the frame matches the final world state
   drawMinimap();
@@ -852,6 +888,7 @@ if (shot) {
       fire.update(dt, fireCtx());
       baggage.update(dt, baggageCtx());
       sweeper.update(dt, sweeperCtx());
+      lighthouse.update(dt, lighthouseCtx());
       hud.update(dt, world);
       audio.update(dt, world);
       drawMinimap();

@@ -296,6 +296,14 @@ h2 { margin: 0 0 8px; font-size: 52px; font-style: italic; letter-spacing: 4px; 
 #fire-timer.cold { color: #ff5a4a; }
 #fire-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #ice-dist { font-size: 14px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
+#lighthouse-supply { position: absolute; left: 50%; bottom: 694px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 2px 12px; line-height: 1.1; white-space: nowrap; background: rgba(30, 24, 6, 0.74); border-left: 4px solid #ffe27a; border-radius: 6px; font-weight: 800; letter-spacing: 1px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+#lighthouse-label { color: #ffe27a; font-size: 12px; }
+#lighthouse-pay { font-size: 16px; font-style: italic; font-variant-numeric: tabular-nums; }
+#lighthouse-count { font-size: 12px; font-variant-numeric: tabular-nums; color: #fff0b8; }
+#lighthouse-cargo { font-size: 12px; font-variant-numeric: tabular-nums; color: #ffd070; }
+#lighthouse-timer { font-size: 13px; font-variant-numeric: tabular-nums; color: #fff0b8; }
+#lighthouse-timer.cold { color: #ff5a4a; }
+#lighthouse-dist { font-size: 12px; font-variant-numeric: tabular-nums; color: #dfe6ee; }
 #baggage-train { position: absolute; left: 50%; bottom: 646px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 16px; background: rgba(4, 18, 30, 0.74); border-left: 4px solid #4dc3ff; border-radius: 6px; font-weight: 800; letter-spacing: 2px; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
 #baggage-label { color: #4dc3ff; font-size: 14px; }
 #baggage-pay { font-size: 20px; font-style: italic; font-variant-numeric: tabular-nums; }
