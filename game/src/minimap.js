@@ -544,6 +544,31 @@ export class Minimap {
       g.fill();
       g.restore();
     }
+    // Night Market Run: a pulsing warm-orange diamond with a dark awning bar + cream outline on the current stall (rim-clamped when far)
+    if (extras.market) {
+      const t = extras.market;
+      let dx = u(t.x) - u(player.px), dy = v(t.z) - v(player.pz);
+      const d = Math.hypot(dx, dy), maxD = (R - 14) / zoom;
+      const far = d > maxD;
+      if (far && d > 0) { dx *= maxD / d; dy *= maxD / d; }
+      const r = far ? 5.5 : 7.5 + 1.2 * Math.sin(now * 3);
+      g.save();
+      g.translate(u(player.px) + dx, v(player.pz) + dy);
+      g.scale(inv, inv);
+      g.beginPath();
+      g.moveTo(0, -r); g.lineTo(r, 0); g.lineTo(0, r); g.lineTo(-r, 0); g.closePath();
+      g.strokeStyle = 'rgba(12,16,24,0.95)';
+      g.lineWidth = 6;
+      g.stroke();
+      g.fillStyle = '#ffa94d';
+      g.fill();
+      g.strokeStyle = '#fff1d6';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#3a2000';
+      g.fillRect(-r * 0.45, -r * 0.18, r * 0.9, r * 0.36);
+      g.restore();
+    }
     // Lighthouse Supply: a pulsing pale-gold diamond with a dark plus core on the pickup / current checkpoint / delivery (rim-clamped when far)
     if (extras.lighthouse) {
       const t = extras.lighthouse;

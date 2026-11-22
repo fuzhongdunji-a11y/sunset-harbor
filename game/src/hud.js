@@ -48,6 +48,7 @@ export class Hud {
       ice: $('ice-cream'), iceLabel: $('ice-label'), icePay: $('ice-pay'), iceCount: $('ice-count'), iceSell: $('ice-sell'), iceTimer: $('ice-timer'), iceDist: $('ice-dist'),
       quarry: $('quarry-haul'), quarryLabel: $('quarry-label'), quarryPay: $('quarry-pay'), quarryTrips: $('quarry-trips'), quarryCargo: $('quarry-cargo'), quarryDist: $('quarry-dist'),
       fireWatch: $('fire-watch'), fireWatchLabel: $('fire-label'), fireWatchPay: $('fire-pay'), fireWatchCount: $('fire-count'), fireWatchDouse: $('fire-douse'), fireWatchTimer: $('fire-timer'), fireWatchDist: $('fire-dist'),
+      market: $('night-market'), marketLabel: $('market-label'), marketPay: $('market-pay'), marketCount: $('market-count'), marketTimer: $('market-timer'), marketDist: $('market-dist'),
       baggage: $('baggage-train'), baggageLabel: $('baggage-label'), baggagePay: $('baggage-pay'), baggageCount: $('baggage-count'), baggageCoupled: $('baggage-coupled'), baggageDist: $('baggage-dist'),
       lighthouse: $('lighthouse-supply'), lighthouseLabel: $('lighthouse-label'), lighthousePay: $('lighthouse-pay'), lighthouseCount: $('lighthouse-count'), lighthouseCargo: $('lighthouse-cargo'), lighthouseTimer: $('lighthouse-timer'), lighthouseDist: $('lighthouse-dist'),
       sweeper: $('street-sweeper'), sweeperLabel: $('sweeper-label'), sweeperPay: $('sweeper-pay'), sweeperCount: $('sweeper-count'), sweeperClean: $('sweeper-clean'), sweeperDist: $('sweeper-dist'),
@@ -410,6 +411,22 @@ export class Hud {
     this._set('lht', e.lighthouseTimer, `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`);
     e.lighthouseTimer.classList.toggle('cold', s.timeLeft < 10);
     this._set('lhd', e.lighthouseDist, `${Math.round(s.distanceLeft)} m`);
+  }
+
+  // Night Market Run: label, earnings so far, shops n/3, leg countdown m:ss (cold under 10 s) and metres to the stall.
+  _market(world) {
+    const e = this.el;
+    const s = world.market ? world.market.hudState() : null;
+    const show = !!s && s.visible;
+    e.market.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._set('mkl', e.marketLabel, s.label);
+    this._set('mkp', e.marketPay, s.pay > 0 ? `$${s.pay.toLocaleString('en-US')}` : '');
+    this._set('mkc', e.marketCount, `shops ${s.shopsDone}/${s.shopsTotal}`);
+    const secs = Math.max(0, Math.ceil(s.timeLeft));
+    this._set('mkt', e.marketTimer, `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`);
+    e.marketTimer.classList.toggle('cold', s.timeLeft < 10);
+    this._set('mkd', e.marketDist, `${Math.round(s.distanceLeft)} m`);
   }
 
   // Fire Watch: label, earnings so far, fires n/4, douse progress %, per-fire countdown m:ss (cold under 10 s) and metres to the blaze.
@@ -855,6 +872,7 @@ export class Hud {
     this._lighthouse(world);
     this._baggage(world);
     this._sweeper(world);
+    this._market(world);
     if (boat) {
       const b = p.vehicle;
       this._set('speed', e.speed, String(Math.round(b.knots)));
